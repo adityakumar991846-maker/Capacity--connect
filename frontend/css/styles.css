@@ -1,0 +1,43 @@
+/* =============================================================================
+   Capacity Connect — Global Styles
+   =============================================================================
+   Custom styles layered on top of Bootstrap 5.
+   Keep this file lean; prefer Bootstrap utility classes in HTML.
+   ============================================================================= */
+
+/* ---------- Root Variables ---------- */
+:root {
+    --cc-primary: #0d6efd;
+    --cc-primary-dark: #0a58ca;
+    --cc-bg-light: #f8f9fa;
+    --cc-text-dark: #212529;
+    --cc-text-muted: #6c757d;
+}
+
+/* ---------- Global ---------- */
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--cc-text-dark);
+    background-color: var(--cc-bg-light);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* ---------- Navbar ---------- */
+.navbar-brand {
+    letter-spacing: 0.5px;
+}
+
+/* ---------- Utility ---------- */
+.cursor-pointer {
+    cursor: pointer;
+}
