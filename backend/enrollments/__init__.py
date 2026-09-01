@@ -1,0 +1,3 @@
+"""
+Enrollments app package.
+"""

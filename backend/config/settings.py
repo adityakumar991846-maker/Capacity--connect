@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     # Project apps
     'core',
     'courses',
+    'enrollments',
 ]
 
 MIDDLEWARE = [
