@@ -1,0 +1,3 @@
+"""
+Courses app migrations package.
+"""
