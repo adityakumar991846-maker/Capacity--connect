@@ -52,36 +52,32 @@
                 <i class="bi bi-grid-1x2-fill"></i>
                 <span>Dashboard</span>
             </a>
-            <a href="#" class="cc-nav-link">
+            <a href="my-courses.html" class="cc-nav-link">
                 <i class="bi bi-journal-bookmark-fill"></i>
                 <span>My Courses</span>
-                <span class="badge bg-secondary-subtle text-muted">0</span>
+                <span class="badge bg-secondary-subtle text-muted" id="sidebarMyCoursesCount">0</span>
             </a>
-            <a href="#" class="cc-nav-link">
+            <a href="browse-courses.html" class="cc-nav-link">
                 <i class="bi bi-compass-fill"></i>
                 <span>Browse Courses</span>
             </a>
-            <a href="#" class="cc-nav-link">
+            <a href="#" class="cc-nav-link text-muted opacity-75">
                 <i class="bi bi-check2-circle"></i>
                 <span>Assessments</span>
                 <span class="badge bg-primary-subtle text-primary">Soon</span>
             </a>
-            <a href="#" class="cc-nav-link">
+            <a href="my-courses.html" class="cc-nav-link">
                 <i class="bi bi-graph-up-arrow"></i>
                 <span>Progress</span>
             </a>
-            <a href="#" class="cc-nav-link">
+            <a href="#" class="cc-nav-link text-muted opacity-75">
                 <i class="bi bi-award-fill"></i>
                 <span>Certificates</span>
                 <span class="badge bg-primary-subtle text-primary">Soon</span>
             </a>
 
             <div class="cc-nav-section-title mt-3">Account &amp; Support</div>
-            <a href="#" class="cc-nav-link">
-                <i class="bi bi-chat-square-dots-fill"></i>
-                <span>Feedback</span>
-            </a>
-            <a href="#" class="cc-nav-link">
+            <a href="#" class="cc-nav-link text-muted opacity-75">
                 <i class="bi bi-person-gear"></i>
                 <span>Profile</span>
             </a>
@@ -108,17 +104,13 @@
             <!-- Search Area -->
             <div class="cc-topbar-search position-relative d-none d-md-block">
                 <i class="bi bi-search search-icon"></i>
-                <input type="text" class="form-control" id="topbarSearchInput" placeholder="Search courses, modules... (Ctrl + K)">
+                <input type="text" class="form-control" id="topbarSearchInput" placeholder="Search courses, modules... (Ctrl + K)" onkeydown="if(event.key==='Enter') window.location.href='browse-courses.html';">
             </div>
 
             <!-- Topbar Right Actions -->
             <div class="cc-topbar-actions ms-auto">
-                <a href="#" class="cc-topbar-action-btn" title="Notifications">
-                    <i class="bi bi-bell"></i>
-                    <span class="badge-dot"></span>
-                </a>
-                <a href="#" class="cc-topbar-action-btn" title="Messages">
-                    <i class="bi bi-chat-dots"></i>
+                <a href="browse-courses.html" class="btn btn-outline-primary btn-sm rounded-3 d-none d-sm-inline-flex align-items-center me-2">
+                    <i class="bi bi-compass me-1"></i>Browse Courses
                 </a>
 
                 <!-- User Dropdown Menu -->
@@ -143,10 +135,7 @@
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
-                            <a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>My Profile</a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i>Preferences</a>
+                            <a class="dropdown-item" href="my-courses.html"><i class="bi bi-journal-bookmark me-2"></i>My Enrollments</a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
@@ -180,7 +169,7 @@
                     <div class="cc-stat-card shadow-sm">
                         <div>
                             <div class="cc-stat-label">Enrolled Courses</div>
-                            <div class="cc-stat-value">0</div>
+                            <div class="cc-stat-value" id="traineeStatEnrolled">0</div>
                             <div class="cc-stat-subtext">Active learning paths</div>
                         </div>
                         <div class="cc-stat-icon primary">
@@ -191,9 +180,9 @@
                 <div class="col-sm-6 col-xl-3">
                     <div class="cc-stat-card shadow-sm">
                         <div>
-                            <div class="cc-stat-label">Course Progress</div>
-                            <div class="cc-stat-value">0%</div>
-                            <div class="cc-stat-subtext">Average completion</div>
+                            <div class="cc-stat-label">Average Progress</div>
+                            <div class="cc-stat-value" id="traineeStatProgress">0%</div>
+                            <div class="cc-stat-subtext">Across all enrollments</div>
                         </div>
                         <div class="cc-stat-icon warning">
                             <i class="bi bi-hourglass-split"></i>
@@ -204,8 +193,8 @@
                     <div class="cc-stat-card shadow-sm">
                         <div>
                             <div class="cc-stat-label">Completed Courses</div>
-                            <div class="cc-stat-value">0</div>
-                            <div class="cc-stat-subtext">Milestones reached</div>
+                            <div class="cc-stat-value" id="traineeStatCompleted">0</div>
+                            <div class="cc-stat-subtext">100% completed courses</div>
                         </div>
                         <div class="cc-stat-icon success">
                             <i class="bi bi-check-circle-fill"></i>
@@ -237,12 +226,12 @@
                                 <i class="bi bi-play-circle-fill text-primary me-2"></i>Continue Learning
                             </h5>
                         </div>
-                        <div class="cc-card-body">
+                        <div class="cc-card-body" id="continueLearningBody">
                             <div class="p-4 text-center bg-light rounded-3">
                                 <i class="bi bi-journal-check fs-2 text-muted mb-2 d-block"></i>
                                 <h6 class="fw-bold text-dark">No Active Course in Progress</h6>
                                 <p class="text-muted small mb-3">You have not started any course modules yet.</p>
-                                <a href="#" class="btn btn-primary btn-sm px-3 rounded-2">
+                                <a href="browse-courses.html" class="btn btn-primary btn-sm px-3 rounded-2">
                                     <i class="bi bi-search me-1"></i>Browse Available Courses
                                 </a>
                             </div>
@@ -251,19 +240,22 @@
 
                     <!-- Enrolled Courses -->
                     <div class="cc-card mb-4 shadow-sm">
-                        <div class="cc-card-header">
+                        <div class="cc-card-header d-flex justify-content-between align-items-center">
                             <h5 class="fw-bold mb-0 text-dark">
                                 <i class="bi bi-collection-fill text-primary me-2"></i>Enrolled Courses
                             </h5>
+                            <a href="my-courses.html" class="btn btn-outline-primary btn-sm fw-semibold" id="viewAllCoursesBtn">
+                                View All
+                            </a>
                         </div>
-                        <div class="cc-card-body">
+                        <div class="cc-card-body" id="enrolledCoursesBody">
                             <div class="p-4 text-center bg-light rounded-3">
                                 <p class="text-muted small mb-0">No course enrollments found. Explore published courses to begin learning.</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Recommended Courses (Placeholder) -->
+                    <!-- Recommended Courses (Placeholder for future module) -->
                     <div class="cc-card shadow-sm">
                         <div class="cc-card-header">
                             <div class="d-flex align-items-center">
@@ -326,7 +318,7 @@
                                 <i class="bi bi-clock-history me-2 text-secondary"></i>Recent Activity
                             </h6>
                         </div>
-                        <div class="cc-card-body">
+                        <div class="cc-card-body" id="recentActivityBody">
                             <p class="text-muted small mb-0 text-center py-3">No recent learning activity recorded.</p>
                         </div>
                     </div>
@@ -353,12 +345,138 @@
     <script src="../js/app.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/dashboard.js"></script>
+    <script src="../js/trainee-learning.js"></script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             // Guard page: require TRAINEE role
-            Dashboard.init('TRAINEE');
+            await Dashboard.init('TRAINEE');
+            await loadTraineeDashboardData();
         });
+
+        async function loadTraineeDashboardData() {
+            try {
+                const enrollments = await TraineeLearning.fetchMyEnrollments();
+                const validEnrollments = (Array.isArray(enrollments) ? enrollments : []).filter(e => e.status !== 'DROPPED');
+
+                // 1. Calculate and render authoritative KPIs
+                const stats = TraineeLearning.computeDashboardStats(validEnrollments);
+                const elEnrolled = document.getElementById('traineeStatEnrolled');
+                const elProgress = document.getElementById('traineeStatProgress');
+                const elCompleted = document.getElementById('traineeStatCompleted');
+                const elSidebarCount = document.getElementById('sidebarMyCoursesCount');
+
+                if (elEnrolled) elEnrolled.textContent = stats.totalEnrolled;
+                if (elProgress) elProgress.textContent = `${stats.averageProgress}%`;
+                if (elCompleted) elCompleted.textContent = stats.completedCount;
+                if (elSidebarCount) elSidebarCount.textContent = stats.totalEnrolled;
+
+                // 2. Render Continue Learning section
+                const continueCourse = TraineeLearning.getContinueLearningCourse(validEnrollments);
+                const continueBody = document.getElementById('continueLearningBody');
+
+                if (continueCourse && continueBody) {
+                    const c = continueCourse.course || {};
+                    const progress = parseFloat(continueCourse.progress_percentage) || 0;
+                    continueBody.innerHTML = `
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3">
+                            <div>
+                                <span class="badge bg-secondary-subtle text-secondary px-2 py-1 small fw-semibold mb-1">
+                                    ${TraineeLearning.escapeHtml(c.category || 'General')}
+                                </span>
+                                <h5 class="fw-bold text-dark mb-1">${TraineeLearning.escapeHtml(c.title || 'Course')}</h5>
+                                <div class="text-muted small">
+                                    <i class="bi bi-person me-1"></i>${TraineeLearning.escapeHtml(c.trainer_username || 'Staff Trainer')}
+                                </div>
+                            </div>
+                            <div class="mt-3 mt-sm-0 text-sm-end">
+                                <a href="course-learn.html?enrollment_id=${continueCourse.id}" class="btn btn-primary fw-semibold px-3">
+                                    <i class="bi bi-play-circle-fill me-1"></i>Resume Learning
+                                </a>
+                            </div>
+                        </div>
+                        <div class="pt-2 border-top">
+                            <div class="d-flex justify-content-between small text-muted mb-1">
+                                <span>Overall Progress</span>
+                                <strong class="text-dark">${progress}%</strong>
+                            </div>
+                            <div class="cc-progress">
+                                <div class="cc-progress-bar" style="width: ${progress}%;"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // 3. Render Enrolled Courses section
+                const enrolledBody = document.getElementById('enrolledCoursesBody');
+                if (enrolledBody) {
+                    if (validEnrollments.length === 0) {
+                        enrolledBody.innerHTML = `
+                            <div class="p-4 text-center bg-light rounded-3">
+                                <p class="text-muted small mb-2">No active course enrollments yet.</p>
+                                <a href="browse-courses.html" class="btn btn-primary btn-sm px-3">
+                                    <i class="bi bi-compass me-1"></i>Browse Available Courses
+                                </a>
+                            </div>
+                        `;
+                    } else {
+                        // Display top 3 most recent enrollments
+                        const displayList = validEnrollments.slice(0, 3);
+                        enrolledBody.innerHTML = `
+                            <div class="list-group list-group-flush">
+                                ${displayList.map(item => {
+                                    const c = item.course || {};
+                                    const isComp = item.status === 'COMPLETED';
+                                    const prog = parseFloat(item.progress_percentage) || 0;
+                                    return `
+                                        <div class="list-group-item px-0 py-3 border-bottom">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <div>
+                                                    <h6 class="fw-bold text-dark mb-0">${TraineeLearning.escapeHtml(c.title || 'Course')}</h6>
+                                                    <span class="text-muted small">${TraineeLearning.escapeHtml(c.category || 'General')} &bull; ${c.duration_hours || 0} hrs</span>
+                                                </div>
+                                                <span class="badge ${isComp ? 'bg-success text-white' : 'bg-primary-subtle text-primary'} px-2 py-1 small">
+                                                    ${isComp ? 'Completed' : `${prog}%`}
+                                                </span>
+                                            </div>
+                                            <div class="cc-progress mb-2">
+                                                <div class="cc-progress-bar ${isComp ? 'completed' : ''}" style="width: ${prog}%;"></div>
+                                            </div>
+                                            <div class="text-end">
+                                                <a href="course-learn.html?enrollment_id=${item.id}" class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold">
+                                                    ${isComp ? 'Review Modules' : 'Continue Module'} &rarr;
+                                                </a>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `;
+                    }
+                }
+
+                // 4. Render Recent Activity from enrollments
+                const recentBody = document.getElementById('recentActivityBody');
+                if (recentBody && validEnrollments.length > 0) {
+                    recentBody.innerHTML = `
+                        <div class="small">
+                            ${validEnrollments.slice(0, 3).map(e => `
+                                <div class="d-flex align-items-start mb-3">
+                                    <i class="bi bi-journal-check text-primary me-2 mt-1"></i>
+                                    <div>
+                                        <div class="fw-semibold text-dark">${TraineeLearning.escapeHtml(e.course && e.course.title || 'Course')}</div>
+                                        <div class="text-muted" style="font-size: 0.75rem;">Status: ${e.status} &bull; ${parseFloat(e.progress_percentage) || 0}% Progress</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+            } catch (err) {
+                console.error('[TraineeDashboard] Error loading data:', err);
+            }
+        }
     </script>
 </body>
 </html>

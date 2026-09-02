@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Room — Capacity Connect</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YcnS/1p0RDQB1ZOAqz5+fQGeYyppmfKPqv7"
+          crossorigin="anonymous">
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+          rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body class="dashboard-body">
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div class="cc-sidebar-backdrop" id="cc-sidebar-backdrop"></div>
+
+    <!-- Sidebar -->
+    <aside class="cc-sidebar" id="cc-sidebar">
+        <!-- Brand Header -->
+        <a href="../index.html" class="cc-sidebar-brand">
+            <i class="bi bi-lightning-charge-fill me-2"></i>
+            <span>Capacity Connect</span>
+        </a>
+
+        <!-- User Identity Snippet -->
+        <div class="cc-sidebar-user">
+            <div class="d-flex align-items-center">
+                <div class="avatar me-3">
+                    <span class="cc-avatar-initial">T</span>
+                </div>
+                <div class="overflow-hidden">
+                    <div class="fw-bold text-white text-truncate cc-username-display">Trainee</div>
+                    <span class="badge cc-role-badge bg-info text-dark">TRAINEE</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Role Navigation -->
+        <nav class="cc-sidebar-nav">
+            <div class="cc-nav-section-title">Learning Space</div>
+            <a href="trainee-dashboard.html" class="cc-nav-link">
+                <i class="bi bi-grid-1x2-fill"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="my-courses.html" class="cc-nav-link active">
+                <i class="bi bi-journal-bookmark-fill"></i>
+                <span>My Courses</span>
+            </a>
+            <a href="browse-courses.html" class="cc-nav-link">
+                <i class="bi bi-compass-fill"></i>
+                <span>Browse Courses</span>
+            </a>
+            <a href="#" class="cc-nav-link text-muted opacity-75">
+                <i class="bi bi-check2-circle"></i>
+                <span>Assessments</span>
+                <span class="badge bg-primary-subtle text-primary">Soon</span>
+            </a>
+            <a href="my-courses.html" class="cc-nav-link">
+                <i class="bi bi-graph-up-arrow"></i>
+                <span>Progress</span>
+            </a>
+            <a href="#" class="cc-nav-link text-muted opacity-75">
+                <i class="bi bi-award-fill"></i>
+                <span>Certificates</span>
+                <span class="badge bg-primary-subtle text-primary">Soon</span>
+            </a>
+
+            <div class="cc-nav-section-title mt-3">Account &amp; Support</div>
+            <a href="#" class="cc-nav-link text-muted opacity-75">
+                <i class="bi bi-person-gear"></i>
+                <span>Profile</span>
+            </a>
+        </nav>
+
+        <!-- Sidebar Footer -->
+        <div class="cc-sidebar-footer">
+            <a href="#" class="cc-nav-link text-danger" onclick="Auth.logout(); return false;">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Sign Out</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <div class="cc-main-wrapper">
+        <!-- Topbar -->
+        <header class="cc-topbar">
+            <!-- Mobile Toggle -->
+            <button class="cc-sidebar-toggle-btn d-lg-none me-2" id="sidebarToggleBtn" aria-label="Toggle Navigation">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <!-- Back Link -->
+            <a href="my-courses.html" class="btn btn-outline-secondary btn-sm rounded-3 me-3">
+                <i class="bi bi-arrow-left me-1"></i>My Courses
+            </a>
+
+            <div class="d-none d-md-block text-truncate">
+                <span class="text-muted small">Course Learning / </span>
+                <span class="fw-semibold text-dark small" id="learnCourseTitle">Course</span>
+            </div>
+
+            <!-- Topbar Right Actions -->
+            <div class="cc-topbar-actions ms-auto">
+                <span class="badge bg-secondary-subtle text-secondary px-2 py-1 small d-none d-sm-inline-block" id="learnCourseCategory">Category</span>
+                <span class="badge bg-primary-subtle text-primary px-2 py-1 small" id="learnStatusBadge">In Progress</span>
+
+                <!-- User Dropdown Menu -->
+                <div class="dropdown ms-2">
+                    <button class="btn btn-light d-flex align-items-center border-0 py-1 px-2 rounded-3"
+                            type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="bg-info-subtle text-primary rounded-circle p-1 me-2" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                            <span class="cc-avatar-initial fw-bold small">T</span>
+                        </div>
+                        <div class="text-start d-none d-sm-block me-2">
+                            <div class="small fw-bold text-dark cc-username-display">Trainee</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Trainee Portal</div>
+                        </div>
+                        <i class="bi bi-chevron-down small text-muted"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
+                        <li>
+                            <div class="dropdown-item-text py-2">
+                                <div class="fw-bold cc-username-display">Trainee</div>
+                                <div class="text-muted small cc-email-display">user@example.com</div>
+                            </div>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="trainee-dashboard.html"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="my-courses.html"><i class="bi bi-journal-bookmark me-2"></i>My Enrollments</a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="#" onclick="Auth.logout(); return false;">
+                                <i class="bi bi-box-arrow-right me-2"></i>Sign Out
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="cc-content">
+
+            <!-- Loading State -->
+            <div id="learnLoadingState" class="p-4">
+                <div class="cc-skeleton cc-skeleton-title" style="width: 40%; height: 28px;"></div>
+                <div class="cc-skeleton cc-skeleton-text" style="height: 10px; margin-bottom: 2rem;"></div>
+                <div class="row g-4">
+                    <div class="col-lg-4">
+                        <div class="cc-skeleton-card" style="height: 350px;"></div>
+                    </div>
+                    <div class="col-lg-8">
+                        <div class="cc-skeleton-card" style="height: 350px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div id="learnErrorState" class="cc-error-state d-none my-4">
+                <i class="bi bi-exclamation-triangle"></i>
+                <h4 class="fw-bold text-dark mb-2">Learning Session Error</h4>
+                <p class="text-muted error-message mb-3">Unable to retrieve enrollment details or learning modules.</p>
+                <a href="my-courses.html" class="btn btn-primary btn-sm px-4">
+                    <i class="bi bi-arrow-left me-1"></i>Return to My Courses
+                </a>
+            </div>
+
+            <!-- Learning Content Area -->
+            <div id="learnContentState" class="d-none">
+
+                <!-- Course Header & Overall Progress Bar -->
+                <div class="cc-card p-4 mb-4 shadow-sm">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-2">
+                        <div>
+                            <span class="badge bg-primary-subtle text-primary px-2 py-1 small fw-semibold mb-1">Learning Workspace</span>
+                            <h4 class="fw-bold text-dark mb-0" id="learnCourseTitle">Course Title</h4>
+                        </div>
+                        <div class="text-md-end">
+                            <span class="text-muted small">Course Progress: </span>
+                            <strong class="text-dark fs-5" id="learnProgressValue">0%</strong>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="cc-progress mt-2">
+                        <div class="cc-progress-bar" id="learnProgressBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Split Layout: Syllabus on Left, Viewer on Right -->
+                <div class="cc-learn-body">
+                    <!-- Left Column: Syllabus Drawer -->
+                    <div class="cc-syllabus-card shadow-sm">
+                        <div class="cc-card-header">
+                            <h6 class="fw-bold mb-0 text-dark">
+                                <i class="bi bi-list-nested me-2 text-primary"></i>Curriculum
+                            </h6>
+                            <span class="badge bg-light text-dark fw-semibold" id="learnSyllabusCount">0 Modules</span>
+                        </div>
+                        <ul class="cc-syllabus-list" id="learnSyllabusList">
+                            <!-- Populated dynamically -->
+                        </ul>
+                    </div>
+
+                    <!-- Right Column: Subject Viewer -->
+                    <div class="cc-subject-viewer shadow-sm">
+                        <!-- Completion Banner if 100% -->
+                        <div id="subjectCompletionNotice" class="alert alert-success d-flex align-items-center mb-4 d-none py-2 px-3 small">
+                            <i class="bi bi-check-circle-fill fs-5 me-2"></i>
+                            <div>
+                                <strong>All modules completed!</strong> You have fulfilled 100% of this course requirement.
+                            </div>
+                        </div>
+
+                        <!-- Current Subject Header -->
+                        <div class="mb-4 pb-3 border-bottom">
+                            <span class="badge bg-secondary-subtle text-secondary px-2 py-1 small fw-semibold mb-2" id="activeSubjectOrder">
+                                Module 1
+                            </span>
+                            <h3 class="fw-bold text-dark mb-0" id="activeSubjectTitle">Module Title</h3>
+                        </div>
+
+                        <!-- Current Subject Body -->
+                        <div class="flex-grow-1 mb-4">
+                            <h6 class="fw-bold text-dark mb-2">Syllabus Overview &amp; Learning Notes</h6>
+                            <div class="text-secondary" id="activeSubjectDescription" style="white-space: pre-line; line-height: 1.6;">
+                                Description text.
+                            </div>
+                        </div>
+
+                        <!-- Action Footer -->
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center pt-3 border-top gap-3">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-secondary btn-sm" id="prevSubjectBtn" onclick="CourseLearnController.prevSubject();">
+                                    <i class="bi bi-chevron-left me-1"></i>Previous
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" id="nextSubjectBtn" onclick="CourseLearnController.nextSubject();">
+                                    Next<i class="bi bi-chevron-right ms-1"></i>
+                                </button>
+                            </div>
+
+                            <div>
+                                <button class="btn btn-primary fw-semibold" id="toggleCompleteBtn" onclick="CourseLearnController.handleToggleComplete();">
+                                    <i class="bi bi-check2-circle me-2"></i>Mark as Complete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white border-top py-3 px-4 text-center text-muted small mt-auto">
+            &copy; 2026 Capacity Connect. Empowering skill-building and capacity management.
+        </footer>
+    </div>
+
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+            crossorigin="anonymous"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/supabase-client.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/dashboard.js"></script>
+    <script src="../js/trainee-learning.js"></script>
+    <script src="../js/course-learn.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            await Dashboard.init('TRAINEE');
+            await CourseLearnController.init();
+        });
+    </script>
+</body>
+</html>
