@@ -1,17 +1,73 @@
 """
-Test suite for the core authentication module.
+Test suite for the core authentication module and Supabase Auth integration.
 
-15 test cases covering registration, login, logout, current user,
-role validation, and permission behavior.
+Includes:
+- Original 15 test cases covering registration, login, logout, current user, role validation
+- Supabase JWT verification tests:
+  - HS256 valid signature and auto-provisioning
+  - RS256/JWKS valid signature with mock JWKS
+  - Expired token rejection
+  - Tampered signature rejection
+  - Invalid audience rejection
+  - Invalid issuer rejection
+  - Unsupported algorithm rejection (e.g. HS384)
+  - Algorithm 'none' rejection
+  - JWKS lookup failure rejection (strictly NO fallback to HS256)
+  - ADMIN privilege escalation protection
+- Controlled account linking tests
 """
 
+import time
+import uuid
+from unittest.mock import MagicMock, patch
+
+import jwt
+from cryptography.hazmat.primitives.asymmetric import rsa
+from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from .models import Role, UserProfile
+
+
+def generate_test_supabase_token(
+    sub=None,
+    email='test@example.com',
+    role='TRAINEE',
+    username=None,
+    exp_delta=3600,
+    secret=None,
+    aud='authenticated',
+    iss=None,
+    algorithm='HS256',
+    headers=None,
+):
+    """Helper to generate mock Supabase JWTs for testing."""
+    if sub is None:
+        sub = str(uuid.uuid4())
+    if secret is None:
+        secret = getattr(settings, 'SUPABASE_JWT_SECRET', 'test-supabase-jwt-secret-for-development-only-must-be-changed-in-prod')
+    if iss is None:
+        iss = f"{getattr(settings, 'SUPABASE_URL', 'https://test.supabase.co').rstrip('/')}/auth/v1"
+
+    payload = {
+        'sub': str(sub),
+        'email': email,
+        'aud': aud,
+        'iss': iss,
+        'iat': int(time.time()),
+        'exp': int(time.time()) + exp_delta,
+        'user_metadata': {
+            'username': username or email.split('@')[0],
+            'role': role,
+        },
+    }
+    return jwt.encode(payload, secret, algorithm=algorithm, headers=headers)
 
 
 class AuthRegistrationTests(TestCase):
@@ -177,23 +233,25 @@ class AuthCurrentUserTests(TestCase):
             email='me@example.com',
             password='SecurePass123!',
         )
-        UserProfile.objects.create(user=self.user, role=Role.TRAINER)
+        self.uid = uuid.uuid4()
+        UserProfile.objects.create(user=self.user, role=Role.TRAINER, supabase_uid=self.uid)
 
     def test_11_authenticated_me_returns_user_and_role(self):
-        """Authenticated GET /me/ returns user info with role."""
-        self.client.force_authenticate(user=self.user)
-        response = self.client.get(self.url)
+        """Authenticated GET /me/ via Supabase Bearer token returns user info with role."""
+        token = generate_test_supabase_token(sub=self.uid, email='me@example.com', role='TRAINER')
+        response = self.client.get(self.url, HTTP_AUTHORIZATION=f'Bearer {token}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['id'], self.user.id)
         self.assertEqual(response.data['username'], 'meuser')
         self.assertEqual(response.data['email'], 'me@example.com')
         self.assertEqual(response.data['role'], Role.TRAINER)
+        self.assertEqual(response.data['supabase_uid'], str(self.uid))
         self.assertNotIn('password', response.data)
 
-    def test_12_unauthenticated_me_returns_403(self):
-        """Unauthenticated GET /me/ returns 403."""
+    def test_12_unauthenticated_me_returns_401(self):
+        """Unauthenticated GET /me/ returns 401 Unauthorized."""
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class AuthLogoutTests(TestCase):
@@ -207,12 +265,13 @@ class AuthLogoutTests(TestCase):
             email='logout@example.com',
             password='SecurePass123!',
         )
-        UserProfile.objects.create(user=self.user, role=Role.TRAINEE)
+        self.uid = uuid.uuid4()
+        UserProfile.objects.create(user=self.user, role=Role.TRAINEE, supabase_uid=self.uid)
 
     def test_13_logout_succeeds(self):
-        """Authenticated logout returns 200 and invalidates session."""
-        self.client.force_authenticate(user=self.user)
-        response = self.client.post(self.url)
+        """Authenticated logout via Bearer token returns 200."""
+        token = generate_test_supabase_token(sub=self.uid, email='logout@example.com', role='TRAINEE')
+        response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {token}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('detail', response.data)
 
@@ -225,7 +284,6 @@ class AuthRoleTests(TestCase):
 
     def test_14_role_information_returned_correctly(self):
         """Registration and /me/ return the correct role string."""
-        # Register as TRAINEE
         reg_data = {
             'username': 'roletest',
             'email': 'roletest@example.com',
@@ -236,60 +294,272 @@ class AuthRoleTests(TestCase):
         reg_response = self.client.post(reverse('auth-register'), reg_data, format='json')
         self.assertEqual(reg_response.data['role'], 'TRAINEE')
 
-        # Login and check /me/
-        self.client.post(
-            reverse('auth-login'),
-            {'username': 'roletest', 'password': 'SecurePass123!'},
-            format='json',
-        )
-        me_response = self.client.get(reverse('auth-me'))
+        # Connect user to a Supabase UID to test /me/ with Bearer token
+        user = User.objects.get(username='roletest')
+        uid = uuid.uuid4()
+        user.profile.supabase_uid = uid
+        user.profile.save()
+
+        token = generate_test_supabase_token(sub=uid, email='roletest@example.com', role='TRAINEE')
+        me_response = self.client.get(reverse('auth-me'), HTTP_AUTHORIZATION=f'Bearer {token}')
         self.assertEqual(me_response.data['role'], 'TRAINEE')
 
     def test_15_role_based_permission_behavior(self):
         """
         Different roles have appropriate access patterns.
-
-        - Unauthenticated users cannot access /me/
-        - Both TRAINEE and TRAINER can access /me/ after login
+        - Unauthenticated users receive 401
+        - Both TRAINEE and TRAINER can access /me/ with Bearer token
         - Superuser signal auto-creates ADMIN profile
         """
         me_url = reverse('auth-me')
-
-        # Unauthenticated → 403
+        # Unauthenticated → 401
         response = self.client.get(me_url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        # TRAINEE can access /me/
+        trainee_uid = uuid.uuid4()
         trainee = User.objects.create_user(
             username='t_trainee', email='t_trainee@example.com', password='SecurePass123!',
         )
-        UserProfile.objects.create(user=trainee, role=Role.TRAINEE)
-        self.client.force_authenticate(user=trainee)
-        response = self.client.get(me_url)
+        UserProfile.objects.create(user=trainee, role=Role.TRAINEE, supabase_uid=trainee_uid)
+        token_trainee = generate_test_supabase_token(sub=trainee_uid, email='t_trainee@example.com', role='TRAINEE')
+        response = self.client.get(me_url, HTTP_AUTHORIZATION=f'Bearer {token_trainee}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['role'], Role.TRAINEE)
 
-        # TRAINER can access /me/
-        self.client.force_authenticate(user=None)  # reset
+        trainer_uid = uuid.uuid4()
         trainer = User.objects.create_user(
             username='t_trainer', email='t_trainer@example.com', password='SecurePass123!',
         )
-        UserProfile.objects.create(user=trainer, role=Role.TRAINER)
-        self.client.force_authenticate(user=trainer)
-        response = self.client.get(me_url)
+        UserProfile.objects.create(user=trainer, role=Role.TRAINER, supabase_uid=trainer_uid)
+        token_trainer = generate_test_supabase_token(sub=trainer_uid, email='t_trainer@example.com', role='TRAINER')
+        response = self.client.get(me_url, HTTP_AUTHORIZATION=f'Bearer {token_trainer}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['role'], Role.TRAINER)
 
-        # Superuser auto-gets ADMIN profile via signal
-        self.client.force_authenticate(user=None)
+        admin_uid = uuid.uuid4()
         admin_user = User.objects.create_superuser(
             username='t_admin', email='t_admin@example.com', password='SecurePass123!',
         )
         self.assertTrue(hasattr(admin_user, 'profile'))
         self.assertEqual(admin_user.profile.role, Role.ADMIN)
+        admin_user.profile.supabase_uid = admin_uid
+        admin_user.profile.save()
 
-        # ADMIN can also access /me/
-        self.client.force_authenticate(user=admin_user)
-        response = self.client.get(me_url)
+        token_admin = generate_test_supabase_token(sub=admin_uid, email='t_admin@example.com', role='ADMIN')
+        response = self.client.get(me_url, HTTP_AUTHORIZATION=f'Bearer {token_admin}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['role'], Role.ADMIN)
+
+
+class SupabaseAuthenticationTests(TestCase):
+    """Tests for Supabase JWT verification, auto-provisioning, and role sanitization."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.me_url = reverse('auth-me')
+
+    def test_16_valid_supabase_token_authenticates_existing_linked_user(self):
+        """Supabase JWT with linked supabase_uid authenticates existing Django user."""
+        uid = uuid.uuid4()
+        user = User.objects.create_user(
+            username='sb_existing_user',
+            email='sb_existing@example.com',
+            password='SecurePass123!',
+        )
+        UserProfile.objects.create(user=user, role=Role.TRAINER, supabase_uid=uid)
+
+        token = generate_test_supabase_token(sub=uid, email='sb_existing@example.com', role='TRAINER')
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {token}')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'sb_existing_user')
+        self.assertEqual(response.data['role'], Role.TRAINER)
+        self.assertEqual(response.data['supabase_uid'], str(uid))
+
+    def test_17_valid_supabase_token_auto_provisions_trainee(self):
+        """Valid Supabase token auto-provisions new Django User and TRAINEE UserProfile in MySQL."""
+        uid = uuid.uuid4()
+        token = generate_test_supabase_token(
+            sub=uid,
+            email='new_trainee@example.com',
+            role='TRAINEE',
+            username='auto_trainee_1',
+        )
+
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['email'], 'new_trainee@example.com')
+        self.assertEqual(response.data['role'], Role.TRAINEE)
+        self.assertEqual(response.data['supabase_uid'], str(uid))
+
+        # Check DB state
+        created_user = User.objects.get(profile__supabase_uid=uid)
+        self.assertEqual(created_user.profile.role, Role.TRAINEE)
+        self.assertFalse(created_user.has_usable_password())
+
+    def test_18_valid_supabase_token_auto_provisions_trainer(self):
+        """Valid Supabase token auto-provisions new Django User and TRAINER UserProfile in MySQL."""
+        uid = uuid.uuid4()
+        token = generate_test_supabase_token(
+            sub=uid,
+            email='new_trainer@example.com',
+            role='TRAINER',
+            username='auto_trainer_1',
+        )
+
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['email'], 'new_trainer@example.com')
+        self.assertEqual(response.data['role'], Role.TRAINER)
+        self.assertEqual(response.data['supabase_uid'], str(uid))
+
+    def test_19_admin_role_in_supabase_metadata_sanitized_to_trainee(self):
+        """Any attempt to claim ADMIN role via Supabase signup metadata is sanitized to TRAINEE."""
+        uid = uuid.uuid4()
+        token = generate_test_supabase_token(
+            sub=uid,
+            email='malicious_admin@example.com',
+            role='ADMIN',  # Attempting privilege escalation
+            username='fake_admin',
+        )
+
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['role'], Role.TRAINEE)  # Strictly sanitized
+
+        created_user = User.objects.get(profile__supabase_uid=uid)
+        self.assertEqual(created_user.profile.role, Role.TRAINEE)
+
+    def test_20_expired_supabase_token_returns_401(self):
+        """Expired Supabase token returns 401 Unauthorized."""
+        token = generate_test_supabase_token(exp_delta=-3600)  # Expired 1 hour ago
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('expired', response.data['detail'].lower())
+
+    def test_21_invalid_signature_returns_401(self):
+        """Token signed with wrong secret returns 401 Unauthorized."""
+        token = generate_test_supabase_token(secret='completely-wrong-secret-that-is-at-least-32-chars-long')
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_22_wrong_audience_returns_401(self):
+        """Token with invalid audience returns 401 Unauthorized."""
+        token = generate_test_supabase_token(aud='malicious-audience')
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_23_invalid_issuer_returns_401(self):
+        """Token with foreign issuer returns 401 Unauthorized."""
+        token = generate_test_supabase_token(iss='https://foreign-evil-issuer.com/auth/v1')
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_24_unsupported_algorithm_returns_401(self):
+        """Token with unsupported algorithm (e.g. HS384) returns 401 Unauthorized."""
+        token = generate_test_supabase_token(algorithm='HS384')
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('unsupported', response.data['detail'].lower())
+
+    def test_25_alg_none_returns_401(self):
+        """Token with alg='none' is rejected with 401 Unauthorized."""
+        payload = {
+            'sub': str(uuid.uuid4()),
+            'email': 'none_alg@example.com',
+            'aud': 'authenticated',
+            'iss': f"{getattr(settings, 'SUPABASE_URL', 'https://test.supabase.co').rstrip('/')}/auth/v1",
+            'iat': int(time.time()),
+            'exp': int(time.time()) + 3600,
+        }
+        # Craft an unsigned token with alg='none'
+        token = jwt.encode(payload, key='', algorithm='none')
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @patch('core.authentication.get_jwks_client')
+    def test_26_jwks_lookup_failure_returns_401_no_hs256_fallback(self, mock_get_client):
+        """When JWKS key retrieval fails for RS256 token, it returns 401 and NEVER falls back to HS256."""
+        # Mock JWKS client raising an error
+        mock_client = MagicMock()
+        mock_client.get_signing_key_from_jwt.side_effect = jwt.PyJWKClientError('Signing key not found in JWKS')
+        mock_get_client.return_value = mock_client
+
+        # Generate a private RSA key to sign the token as RS256
+        rsa_private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        payload = {
+            'sub': str(uuid.uuid4()),
+            'email': 'rs256_user@example.com',
+            'aud': 'authenticated',
+            'iss': f"{getattr(settings, 'SUPABASE_URL', 'https://test.supabase.co').rstrip('/')}/auth/v1",
+            'iat': int(time.time()),
+            'exp': int(time.time()) + 3600,
+            'user_metadata': {'username': 'rs256_user', 'role': 'TRAINEE'},
+        }
+        rs256_token = jwt.encode(payload, rsa_private_key, algorithm='RS256', headers={'kid': 'missing-kid'})
+
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {rs256_token}')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('jwks', response.data['detail'].lower())
+
+    @patch('core.authentication.get_jwks_client')
+    def test_27_valid_rs256_token_with_mock_jwks_succeeds(self, mock_get_client):
+        """Valid RS256 token verified via JWKS public key authenticates successfully."""
+        rsa_private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        rsa_public_key = rsa_private_key.public_key()
+
+        mock_client = MagicMock()
+        mock_signing_key = MagicMock()
+        mock_signing_key.key = rsa_public_key
+        mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
+        mock_get_client.return_value = mock_client
+
+        uid = uuid.uuid4()
+        payload = {
+            'sub': str(uid),
+            'email': 'rs256_valid@example.com',
+            'aud': 'authenticated',
+            'iss': f"{getattr(settings, 'SUPABASE_URL', 'https://test.supabase.co').rstrip('/')}/auth/v1",
+            'iat': int(time.time()),
+            'exp': int(time.time()) + 3600,
+            'user_metadata': {'username': 'rs256_valid_user', 'role': 'TRAINER'},
+        }
+        rs256_token = jwt.encode(payload, rsa_private_key, algorithm='RS256', headers={'kid': 'valid-kid'})
+
+        response = self.client.get(self.me_url, HTTP_AUTHORIZATION=f'Bearer {rs256_token}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'rs256_valid_user')
+        self.assertEqual(response.data['role'], Role.TRAINER)
+        self.assertEqual(response.data['supabase_uid'], str(uid))
+
+
+class ControlledAccountLinkingTests(TestCase):
+    """Tests for the link_supabase_user management command."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='step3_user',
+            email='step3@example.com',
+            password='SecurePass123!',
+        )
+        UserProfile.objects.create(user=self.user, role=Role.TRAINER)
+
+    def test_28_link_supabase_user_command_succeeds(self):
+        """link_supabase_user links an existing Django user to a Supabase UUID."""
+        target_uid = uuid.uuid4()
+        call_command('link_supabase_user', username='step3_user', supabase_uid=str(target_uid))
+
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.supabase_uid, target_uid)
+
+    def test_29_link_supabase_user_rejects_duplicate_uid(self):
+        """link_supabase_user fails when the UUID is already bound to another user."""
+        existing_uid = uuid.uuid4()
+        self.user.profile.supabase_uid = existing_uid
+        self.user.profile.save()
+
+        user2 = User.objects.create_user(username='user2', email='user2@example.com', password='Pass1234!')
+        UserProfile.objects.create(user=user2, role=Role.TRAINEE)
+
+        with self.assertRaises(CommandError):
+            call_command('link_supabase_user', username='user2', supabase_uid=str(existing_uid))

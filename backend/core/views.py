@@ -2,10 +2,10 @@
 Views for the core authentication module.
 
 Provides Register, Login, Logout, and CurrentUser API views.
-Uses Django's built-in session authentication.
+Aligned with Supabase Bearer token architecture without creating competing API sessions.
 """
 
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -37,7 +37,8 @@ class LoginView(APIView):
     """
     POST /api/auth/login/
 
-    Authenticates a user and starts a session. Public endpoint.
+    Validates user credentials against Django backend.
+    Does not issue or require Django session cookies.
     """
     permission_classes = [AllowAny]
 
@@ -54,7 +55,6 @@ class LoginView(APIView):
                 {'detail': 'Invalid credentials.'},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-        login(request, user)
         return Response(UserSerializer(user).data)
 
 
@@ -62,12 +62,12 @@ class LogoutView(APIView):
     """
     POST /api/auth/logout/
 
-    Logs out the current user. Requires authentication.
+    Logs out the user in alignment with Bearer token authentication.
+    Requires valid authentication.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        logout(request)
         return Response({'detail': 'Successfully logged out.'})
 
 
@@ -76,8 +76,10 @@ class CurrentUserView(APIView):
     GET /api/auth/me/
 
     Returns the current authenticated user's info and role.
+    Requires Bearer token authentication.
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+

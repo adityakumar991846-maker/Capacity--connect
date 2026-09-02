@@ -165,7 +165,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+        'core.authentication.SupabaseAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -179,6 +179,13 @@ REST_FRAMEWORK = {
 }
 
 # ---------------------------------------------------------------------------
+# Supabase Authentication Settings
+# ---------------------------------------------------------------------------
+
+SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://placeholder-project.supabase.co')
+SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET', 'test-supabase-jwt-secret-for-development-only-must-be-changed-in-prod')
+
+# ---------------------------------------------------------------------------
 # CORS Configuration
 # https://github.com/adamchainz/django-cors-headers
 #
@@ -187,11 +194,20 @@ REST_FRAMEWORK = {
 # ---------------------------------------------------------------------------
 
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only allow all origins when DEBUG is True
+CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = os.getenv(
     'CORS_ALLOWED_ORIGINS',
-    'http://localhost:8000,http://127.0.0.1:8000',
+    'http://localhost:8000,http://127.0.0.1:8000,http://127.0.0.1:5500,http://localhost:5500,http://localhost:3000',
 ).split(',')
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'http://localhost:3000',
+]
 
 # ---------------------------------------------------------------------------
 # Email (console backend for development)

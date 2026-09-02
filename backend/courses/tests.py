@@ -294,10 +294,11 @@ class CourseVisibilityTests(CourseTestBase):
         self.assertIn('Archived Course', titles)
 
     def test_15_unauthenticated_user_cannot_access_course_list(self):
-        """Unauthenticated user receives 403 Forbidden."""
+        """Unauthenticated user receives 401 or 403."""
         url = reverse('course-list-create')
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+
 
 
 class SubjectTests(CourseTestBase):

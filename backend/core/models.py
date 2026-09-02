@@ -33,6 +33,13 @@ class UserProfile(models.Model):
         max_length=10,
         choices=Role.choices,
     )
+    supabase_uid = models.UUIDField(
+        null=True,
+        blank=True,
+        unique=True,
+        db_index=True,
+        help_text='Supabase Auth user UUID (primary external identity link)',
+    )
 
     class Meta:
         verbose_name = 'User Profile'

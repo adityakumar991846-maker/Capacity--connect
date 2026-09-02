@@ -74,8 +74,15 @@ class UserSerializer(serializers.Serializer):
     username = serializers.CharField(read_only=True)
     email = serializers.EmailField(read_only=True)
     role = serializers.SerializerMethodField()
+    supabase_uid = serializers.SerializerMethodField()
 
     def get_role(self, obj):
         if hasattr(obj, 'profile'):
             return obj.profile.role
         return None
+
+    def get_supabase_uid(self, obj):
+        if hasattr(obj, 'profile') and obj.profile.supabase_uid:
+            return str(obj.profile.supabase_uid)
+        return None
+
