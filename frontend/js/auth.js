@@ -109,10 +109,13 @@ const Auth = {
         if (!navList) return;
 
         if (user) {
-            const roleBadgeClass = user.role === 'ADMIN' ? 'bg-danger' : (user.role === 'TRAINER' ? 'bg-warning text-dark' : 'bg-info text-dark');
+            const roleBadgeClass = user.role === 'ADMIN' ? 'bg-danger text-white' : (user.role === 'TRAINER' ? 'bg-warning text-dark' : 'bg-info text-dark');
             navList.innerHTML = `
                 <li class="nav-item">
                     <a class="nav-link" href="/index.html"><i class="bi bi-house-door me-1"></i>Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link fw-semibold" href="/pages/dashboard.html"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
                 </li>
                 <li class="nav-item dropdown ms-lg-3">
                     <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -122,6 +125,11 @@ const Auth = {
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                         <li><h6 class="dropdown-header">${user.email}</h6></li>
+                        <li>
+                            <a class="dropdown-item" href="/pages/dashboard.html">
+                                <i class="bi bi-speedometer2 me-2"></i>My Dashboard
+                            </a>
+                        </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item text-danger" href="#" id="logoutBtn" onclick="Auth.logout(); return false;">
@@ -168,7 +176,7 @@ const Auth = {
 
         if (allowedRoles.length > 0 && !allowedRoles.includes(profile.role)) {
             alert(`Access denied. This page requires one of the following roles: ${allowedRoles.join(', ')}`);
-            window.location.href = '/index.html';
+            window.location.href = '/pages/dashboard.html';
             return false;
         }
 
@@ -183,7 +191,7 @@ const Auth = {
         if (isAuth) {
             const profile = await this.fetchDjangoProfile();
             if (profile) {
-                window.location.href = '/index.html';
+                window.location.href = '/pages/dashboard.html';
             }
         }
     }

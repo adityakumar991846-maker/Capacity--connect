@@ -161,10 +161,12 @@
 
                 try {
                     const result = await Auth.login(email, password);
-                    showAlert('Sign in successful! Redirecting...', 'success');
+                    showAlert('Sign in successful! Redirecting to your dashboard...', 'success');
                     setTimeout(() => {
-                        window.location.href = '../index.html';
-                    }, 800);
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const redirectUrl = urlParams.get('redirect') || 'dashboard.html';
+                        window.location.href = redirectUrl;
+                    }, 600);
                 } catch (err) {
                     console.error('Login error:', err);
                     showAlert(err.message || 'Invalid email or password.', 'danger');
