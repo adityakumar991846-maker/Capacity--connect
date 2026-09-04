@@ -402,15 +402,171 @@
         </div>
     </div>
 
-    <!-- Student Roster Modal -->
-    <div class="modal fade" id="rosterModal" tabindex="-1" aria-labelledby="rosterModalCourseTitle" aria-hidden="true">
+    <!-- Assessment Manager Modal -->
+    <div class="modal fade" id="assessmentManagerModal" tabindex="-1" aria-labelledby="assessmentModalCourseTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-light">
-                    <h5 class="modal-title fw-bold text-dark" id="rosterModalCourseTitle">Student Roster</h5>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark" id="assessmentModalCourseTitle">Assessment Studio</h5>
+                        <p class="text-muted small mb-0">Create and manage multiple-choice quizzes for this course.</p>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body p-0" id="rosterContainer">
+                <div class="modal-body p-4">
+                    <!-- Current Assessments List -->
+                    <h6 class="fw-bold text-secondary text-uppercase small mb-3">Course Quizzes & Assessments</h6>
+                    <div id="assessmentListContainer" class="mb-4">
+                        <!-- Populated dynamically -->
+                    </div>
+
+                    <!-- Create Assessment Form -->
+                    <div class="card border-0 bg-light rounded-3 p-3">
+                        <h6 class="fw-bold text-dark mb-2">
+                            <i class="bi bi-plus-circle text-primary me-1"></i>Create New Assessment
+                        </h6>
+                        <form id="createAssessmentForm">
+                            <div class="row g-2">
+                                <div class="col-md-7">
+                                    <label for="assessmentInputTitle" class="form-label small text-muted mb-1">Assessment Title <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="assessmentInputTitle" placeholder="e.g. Mid-term Knowledge Check" required>
+                                </div>
+                                <div class="col-md-5">
+                                    <label for="assessmentInputSubject" class="form-label small text-muted mb-1">Associated Module (Optional)</label>
+                                    <select class="form-select form-select-sm" id="assessmentInputSubject">
+                                        <option value="">Course Final Assessment</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-4">
+                                    <label for="assessmentInputPassing" class="form-label small text-muted mb-1">Passing % <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control form-control-sm" id="assessmentInputPassing" min="1" max="100" value="70" required>
+                                </div>
+                                <div class="col-sm-4">
+                                    <label for="assessmentInputDuration" class="form-label small text-muted mb-1">Duration (mins) <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control form-control-sm" id="assessmentInputDuration" min="1" max="300" value="30" required>
+                                </div>
+                                <div class="col-sm-4">
+                                    <label for="assessmentInputStatus" class="form-label small text-muted mb-1">Status</label>
+                                    <select class="form-select form-select-sm" id="assessmentInputStatus">
+                                        <option value="DRAFT">Draft</option>
+                                        <option value="PUBLISHED" selected>Published</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label for="assessmentInputDescription" class="form-label small text-muted mb-1">Description / Instructions</label>
+                                    <textarea class="form-control form-control-sm" id="assessmentInputDescription" rows="2" placeholder="Instructions or overview for students..."></textarea>
+                                </div>
+                                <div class="col-12 text-end mt-2">
+                                    <button type="submit" class="btn btn-primary btn-sm px-3 fw-semibold" id="btnCreateAssessment">
+                                        <i class="bi bi-plus-lg me-1"></i>Create Assessment
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-primary btn-sm px-3" data-bs-dismiss="modal">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MCQ Question Builder Modal -->
+    <div class="modal fade" id="questionBuilderModal" tabindex="-1" aria-labelledby="questionModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark" id="questionModalTitle">MCQ Question Builder</h5>
+                        <p class="text-muted small mb-0" id="questionModalSubtitle">Add and configure multiple choice questions.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Current Questions List -->
+                    <h6 class="fw-bold text-secondary text-uppercase small mb-3">Questions in Assessment</h6>
+                    <div id="questionListContainer" class="mb-4">
+                        <!-- Populated dynamically -->
+                    </div>
+
+                    <!-- Add MCQ Form -->
+                    <div class="card border-0 bg-light rounded-3 p-3">
+                        <h6 class="fw-bold text-dark mb-2">
+                            <i class="bi bi-plus-circle text-primary me-1"></i>Add New Question
+                        </h6>
+                        <form id="addQuestionForm">
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <label for="qInputText" class="form-label small text-muted mb-1">Question Text <span class="text-danger">*</span></label>
+                                    <textarea class="form-control form-control-sm" id="qInputText" rows="2" placeholder="e.g. What is the primary role of a Django Model?" required></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="qInputOptionA" class="form-label small text-muted mb-1">Option A <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="qInputOptionA" placeholder="First choice" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="qInputOptionB" class="form-label small text-muted mb-1">Option B <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="qInputOptionB" placeholder="Second choice" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="qInputOptionC" class="form-label small text-muted mb-1">Option C <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="qInputOptionC" placeholder="Third choice" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="qInputOptionD" class="form-label small text-muted mb-1">Option D <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="qInputOptionD" placeholder="Fourth choice" required>
+                                </div>
+                                <div class="col-sm-4">
+                                    <label for="qInputCorrect" class="form-label small text-muted mb-1">Correct Answer <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm fw-bold text-success" id="qInputCorrect" required>
+                                        <option value="A">Option A</option>
+                                        <option value="B">Option B</option>
+                                        <option value="C">Option C</option>
+                                        <option value="D">Option D</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-4">
+                                    <label for="qInputMarks" class="form-label small text-muted mb-1">Marks <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control form-control-sm" id="qInputMarks" min="1" value="1" required>
+                                </div>
+                                <div class="col-sm-4">
+                                    <label for="qInputOrder" class="form-label small text-muted mb-1">Order #</label>
+                                    <input type="number" class="form-control form-control-sm" id="qInputOrder" min="1" value="1" required>
+                                </div>
+                                <div class="col-12">
+                                    <label for="qInputExplanation" class="form-label small text-muted mb-1">Explanation (Shown after submission)</label>
+                                    <textarea class="form-control form-control-sm" id="qInputExplanation" rows="2" placeholder="Explain why the correct answer is right..."></textarea>
+                                </div>
+                                <div class="col-12 text-end mt-2">
+                                    <button type="submit" class="btn btn-primary btn-sm px-3 fw-semibold" id="btnAddQuestion">
+                                        <i class="bi bi-plus-lg me-1"></i>Add Question
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="TrainerStudio.backToAssessmentManager();">Back to Assessments</button>
+                    <button type="button" class="btn btn-primary btn-sm px-3" data-bs-dismiss="modal">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assessment Results Roster Modal -->
+    <div class="modal fade" id="assessmentResultsModal" tabindex="-1" aria-labelledby="assessmentResultsModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark" id="assessmentResultsModalTitle">Assessment Results</h5>
+                        <p class="text-muted small mb-0" id="assessmentResultsModalSubtitle">Student performance and attempt scores.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0" id="assessmentResultsContainer">
                     <!-- Populated dynamically -->
                 </div>
                 <div class="modal-footer bg-light">

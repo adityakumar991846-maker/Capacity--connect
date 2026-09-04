@@ -158,6 +158,11 @@ const TrainerStudio = {
                                     </a>
                                 </li>
                                 <li>
+                                    <a class="dropdown-item" href="#" onclick="TrainerStudio.openAssessmentManagerModal(${course.id}, '${this.escapeHtml(course.title)}'); return false;">
+                                        <i class="bi bi-patch-question me-2 text-warning"></i>Manage Assessments
+                                    </a>
+                                </li>
+                                <li>
                                     <a class="dropdown-item" href="#" onclick="TrainerStudio.openRosterModal(${course.id}, '${this.escapeHtml(course.title)}'); return false;">
                                         <i class="bi bi-people me-2 text-info"></i>Student Roster (${course.enrollment_count})
                                     </a>
@@ -570,6 +575,445 @@ const TrainerStudio = {
         }
     },
 
+    // =========================================================================
+    // ASSESSMENT STUDIO METHODS
+    // =========================================================================
+
+    _activeAssessmentCourseId: null,
+    _activeAssessmentCourseTitle: '',
+    _activeAssessmentId: null,
+    _activeAssessmentTitle: '',
+
+    /**
+     * Opens the Assessment Studio modal for a specific course.
+     */
+    async openAssessmentManagerModal(courseId, courseTitle = '') {
+        this._activeAssessmentCourseId = courseId;
+        this._activeAssessmentCourseTitle = courseTitle || 'Course';
+
+        const titleEl = document.getElementById('assessmentModalCourseTitle');
+        if (titleEl) titleEl.textContent = `Assessments: ${courseTitle}`;
+
+        const form = document.getElementById('createAssessmentForm');
+        if (form) form.reset();
+
+        // Populate Subject dropdown for this course
+        const subjectSelect = document.getElementById('assessmentInputSubject');
+        if (subjectSelect) {
+            subjectSelect.innerHTML = '<option value="">Course Final Assessment (No Module)</option>';
+            try {
+                const subjects = await apiRequest(`/courses/${courseId}/subjects/`);
+                if (Array.isArray(subjects)) {
+                    subjects.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.id;
+                        opt.textContent = `Module ${s.order}: ${s.title}`;
+                        subjectSelect.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.warn('[TrainerStudio] Could not load subjects for assessment dropdown:', e);
+            }
+        }
+
+        const modalEl = document.getElementById('assessmentManagerModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+
+        await this.loadCourseAssessments(courseId);
+    },
+
+    /**
+     * Fetches and renders assessments for the active course.
+     */
+    async loadCourseAssessments(courseId) {
+        const container = document.getElementById('assessmentListContainer');
+        if (!container) return;
+
+        try {
+            container.innerHTML = `
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary mb-1"></div>
+                    <p class="text-muted small mb-0">Loading assessments...</p>
+                </div>
+            `;
+
+            const assessments = await apiRequest(`/assessments/trainer/courses/${courseId}/`);
+            if (!Array.isArray(assessments) || assessments.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-light border small text-muted text-center py-3 mb-0">
+                        <i class="bi bi-patch-question me-1"></i>No assessments created yet for this course.
+                    </div>
+                `;
+                return;
+            }
+
+            const rowsHtml = assessments.map(a => {
+                const statusBadge = a.status === 'PUBLISHED'
+                    ? '<span class="badge bg-success-subtle text-success">Published</span>'
+                    : '<span class="badge bg-warning-subtle text-warning">Draft</span>';
+
+                return `
+                    <div class="d-flex align-items-center justify-content-between p-2 mb-2 bg-white rounded border shadow-sm">
+                        <div>
+                            <div class="fw-semibold text-dark small">${this.escapeHtml(a.title)}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">
+                                Pass: ${a.passing_percentage}% &bull; ${a.duration_minutes} mins &bull; ${a.question_count || 0} Questions (${a.total_marks || 0} Marks) &bull; ${statusBadge}
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <button class="btn btn-outline-primary btn-sm py-1 px-2" title="Manage MCQs"
+                                    onclick="TrainerStudio.openQuestionBuilderModal(${a.id}, '${this.escapeHtml(a.title)}');">
+                                <i class="bi bi-card-checklist me-1"></i>Questions (${a.question_count || 0})
+                            </button>
+                            <button class="btn btn-outline-info btn-sm py-1 px-2" title="View Results"
+                                    onclick="TrainerStudio.openAssessmentResultsModal(${a.id}, '${this.escapeHtml(a.title)}');">
+                                <i class="bi bi-bar-chart me-1"></i>Results (${a.attempt_count || 0})
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm py-1 px-2" title="Delete Assessment"
+                                    onclick="TrainerStudio.deleteAssessment(${a.id});">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = rowsHtml;
+        } catch (err) {
+            console.error('[TrainerStudio] Error loading assessments:', err);
+            container.innerHTML = `<div class="alert alert-danger small mb-0">${this.escapeHtml(err.message)}</div>`;
+        }
+    },
+
+    /**
+     * Handles creating a new assessment.
+     */
+    async handleCreateAssessment(e) {
+        e.preventDefault();
+        if (!this._activeAssessmentCourseId) return;
+
+        const title = document.getElementById('assessmentInputTitle')?.value.trim();
+        const subjectVal = document.getElementById('assessmentInputSubject')?.value;
+        const passing = parseInt(document.getElementById('assessmentInputPassing')?.value, 10);
+        const duration = parseInt(document.getElementById('assessmentInputDuration')?.value, 10);
+        const statusVal = document.getElementById('assessmentInputStatus')?.value || 'DRAFT';
+        const description = document.getElementById('assessmentInputDescription')?.value.trim();
+
+        if (!title) return;
+
+        const btn = document.getElementById('btnCreateAssessment');
+        if (btn) btn.disabled = true;
+
+        try {
+            const payload = {
+                title,
+                passing_percentage: passing || 70,
+                duration_minutes: duration || 30,
+                status: statusVal,
+                description,
+            };
+            if (subjectVal) {
+                payload.subject = parseInt(subjectVal, 10);
+            }
+
+            await apiRequest(`/assessments/trainer/courses/${this._activeAssessmentCourseId}/`, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+
+            document.getElementById('createAssessmentForm')?.reset();
+            await this.loadCourseAssessments(this._activeAssessmentCourseId);
+        } catch (err) {
+            console.error('[TrainerStudio] Error creating assessment:', err);
+            alert(`Failed to create assessment: ${err.message}`);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    /**
+     * Deletes an assessment.
+     */
+    async deleteAssessment(assessmentId) {
+        if (!confirm('Are you sure you want to delete this assessment? All associated questions and trainee attempts will be removed.')) {
+            return;
+        }
+
+        try {
+            await apiRequest(`/assessments/trainer/${assessmentId}/`, { method: 'DELETE' });
+            if (this._activeAssessmentCourseId) {
+                await this.loadCourseAssessments(this._activeAssessmentCourseId);
+            }
+        } catch (err) {
+            console.error('[TrainerStudio] Error deleting assessment:', err);
+            alert(`Failed to delete assessment: ${err.message}`);
+        }
+    },
+
+    /**
+     * Opens Question Builder Modal for an assessment.
+     */
+    async openQuestionBuilderModal(assessmentId, assessmentTitle = '') {
+        this._activeAssessmentId = assessmentId;
+        this._activeAssessmentTitle = assessmentTitle || 'Assessment';
+
+        // Hide Assessment manager modal temporarily
+        const mgrEl = document.getElementById('assessmentManagerModal');
+        if (mgrEl) {
+            const mgrModal = bootstrap.Modal.getInstance(mgrEl);
+            if (mgrModal) mgrModal.hide();
+        }
+
+        const titleEl = document.getElementById('questionModalTitle');
+        if (titleEl) titleEl.textContent = `Question Builder`;
+
+        const subTitleEl = document.getElementById('questionModalSubtitle');
+        if (subTitleEl) subTitleEl.textContent = `${assessmentTitle}`;
+
+        const form = document.getElementById('addQuestionForm');
+        if (form) form.reset();
+
+        const modalEl = document.getElementById('questionBuilderModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+
+        await this.loadAssessmentQuestions(assessmentId);
+    },
+
+    /**
+     * Returns from Question Builder back to Assessment Studio modal.
+     */
+    backToAssessmentManager() {
+        const qEl = document.getElementById('questionBuilderModal');
+        if (qEl) {
+            const qModal = bootstrap.Modal.getInstance(qEl);
+            if (qModal) qModal.hide();
+        }
+
+        if (this._activeAssessmentCourseId) {
+            this.openAssessmentManagerModal(this._activeAssessmentCourseId, this._activeAssessmentCourseTitle);
+        }
+    },
+
+    /**
+     * Fetches and renders all MCQ questions in the active assessment.
+     */
+    async loadAssessmentQuestions(assessmentId) {
+        const container = document.getElementById('questionListContainer');
+        if (!container) return;
+
+        try {
+            container.innerHTML = `
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary mb-1"></div>
+                    <p class="text-muted small mb-0">Loading questions...</p>
+                </div>
+            `;
+
+            const data = await apiRequest(`/assessments/trainer/${assessmentId}/`);
+            const questions = data.questions || [];
+
+            if (questions.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-light border small text-muted text-center py-3 mb-0">
+                        <i class="bi bi-card-checklist me-1"></i>No questions added yet. Use the form below to add MCQs.
+                    </div>
+                `;
+                return;
+            }
+
+            const questionsHtml = questions.map((q, idx) => {
+                const getOptClass = (optKey) => optKey === q.correct_answer ? 'text-success fw-bold' : 'text-muted';
+
+                return `
+                    <div class="card border mb-3 shadow-sm rounded-3">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge bg-primary-subtle text-primary">Q${q.order || (idx + 1)} (${q.marks} Mark${q.marks > 1 ? 's' : ''})</span>
+                                <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="TrainerStudio.deleteQuestion(${q.id});">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-2">${this.escapeHtml(q.question_text)}</h6>
+                            <div class="row g-1 small mb-2">
+                                <div class="col-sm-6 ${getOptClass('A')}"><strong>A:</strong> ${this.escapeHtml(q.option_a)}</div>
+                                <div class="col-sm-6 ${getOptClass('B')}"><strong>B:</strong> ${this.escapeHtml(q.option_b)}</div>
+                                <div class="col-sm-6 ${getOptClass('C')}"><strong>C:</strong> ${this.escapeHtml(q.option_c)}</div>
+                                <div class="col-sm-6 ${getOptClass('D')}"><strong>D:</strong> ${this.escapeHtml(q.option_d)}</div>
+                            </div>
+                            <div class="text-success small fw-semibold">
+                                <i class="bi bi-check-circle-fill me-1"></i>Correct Answer: Option ${q.correct_answer}
+                            </div>
+                            ${q.explanation ? `<div class="text-muted small fst-italic mt-1">Note: ${this.escapeHtml(q.explanation)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = questionsHtml;
+
+            // Auto-increment next order in form
+            const orderInput = document.getElementById('qInputOrder');
+            if (orderInput) orderInput.value = questions.length + 1;
+
+        } catch (err) {
+            console.error('[TrainerStudio] Error loading questions:', err);
+            container.innerHTML = `<div class="alert alert-danger small mb-0">${this.escapeHtml(err.message)}</div>`;
+        }
+    },
+
+    /**
+     * Handles adding a new MCQ question.
+     */
+    async handleAddQuestion(e) {
+        e.preventDefault();
+        if (!this._activeAssessmentId) return;
+
+        const text = document.getElementById('qInputText')?.value.trim();
+        const optA = document.getElementById('qInputOptionA')?.value.trim();
+        const optB = document.getElementById('qInputOptionB')?.value.trim();
+        const optC = document.getElementById('qInputOptionC')?.value.trim();
+        const optD = document.getElementById('qInputOptionD')?.value.trim();
+        const correct = document.getElementById('qInputCorrect')?.value;
+        const marks = parseInt(document.getElementById('qInputMarks')?.value, 10) || 1;
+        const order = parseInt(document.getElementById('qInputOrder')?.value, 10) || 1;
+        const explanation = document.getElementById('qInputExplanation')?.value.trim();
+
+        if (!text || !optA || !optB || !optC || !optD || !correct) return;
+
+        const btn = document.getElementById('btnAddQuestion');
+        if (btn) btn.disabled = true;
+
+        try {
+            await apiRequest(`/assessments/trainer/${this._activeAssessmentId}/questions/`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    question_text: text,
+                    option_a: optA,
+                    option_b: optB,
+                    option_c: optC,
+                    option_d: optD,
+                    correct_answer: correct,
+                    marks,
+                    order,
+                    explanation,
+                }),
+            });
+
+            document.getElementById('addQuestionForm')?.reset();
+            await this.loadAssessmentQuestions(this._activeAssessmentId);
+        } catch (err) {
+            console.error('[TrainerStudio] Error adding question:', err);
+            alert(`Failed to add question: ${err.message}`);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    /**
+     * Deletes an MCQ question.
+     */
+    async deleteQuestion(questionId) {
+        if (!confirm('Are you sure you want to delete this question?')) return;
+
+        try {
+            await apiRequest(`/assessments/trainer/questions/${questionId}/`, { method: 'DELETE' });
+            if (this._activeAssessmentId) {
+                await this.loadAssessmentQuestions(this._activeAssessmentId);
+            }
+        } catch (err) {
+            console.error('[TrainerStudio] Error deleting question:', err);
+            alert(`Failed to delete question: ${err.message}`);
+        }
+    },
+
+    /**
+     * Opens Assessment Results Roster Modal.
+     */
+    async openAssessmentResultsModal(assessmentId, assessmentTitle = '') {
+        const titleEl = document.getElementById('assessmentResultsModalTitle');
+        if (titleEl) titleEl.textContent = `Results: ${assessmentTitle}`;
+
+        const container = document.getElementById('assessmentResultsContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary mb-2"></div>
+                    <p class="text-muted small mb-0">Loading results...</p>
+                </div>
+            `;
+        }
+
+        const modalEl = document.getElementById('assessmentResultsModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+
+        try {
+            const results = await apiRequest(`/assessments/trainer/${assessmentId}/results/`);
+            if (!Array.isArray(results) || results.length === 0) {
+                if (container) {
+                    container.innerHTML = `
+                        <div class="p-4 text-center text-muted">
+                            <i class="bi bi-emoji-smile fs-3 d-block mb-2 text-secondary"></i>
+                            <p class="small mb-0">No trainee attempts recorded for this assessment yet.</p>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            const rowsHtml = results.map(r => {
+                const dateStr = r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : '—';
+                const passBadge = r.passed
+                    ? '<span class="badge bg-success-subtle text-success fw-bold">PASS</span>'
+                    : '<span class="badge bg-danger-subtle text-danger fw-bold">FAIL</span>';
+
+                return `
+                    <tr>
+                        <td class="ps-3">
+                            <div class="fw-semibold text-dark">${this.escapeHtml(r.trainee_username)}</div>
+                            <div class="text-muted small" style="font-size: 0.75rem;">${this.escapeHtml(r.trainee_email || '')}</div>
+                        </td>
+                        <td>${dateStr}</td>
+                        <td><strong>${r.score}</strong> / ${r.total_marks} (${r.percentage}%)</td>
+                        <td>${passBadge}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            if (container) {
+                container.innerHTML = `
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 small">
+                            <thead class="table-light text-secondary text-uppercase" style="font-size: 0.75rem;">
+                                <tr>
+                                    <th class="ps-3">Trainee</th>
+                                    <th>Attempt Date</th>
+                                    <th>Score & %</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+        } catch (err) {
+            console.error('[TrainerStudio] Error loading results:', err);
+            if (container) container.innerHTML = `<div class="alert alert-danger small m-3">${this.escapeHtml(err.message)}</div>`;
+        }
+    },
+
     /**
      * Displays a dismissible global alert banner on the dashboard.
      */
@@ -598,6 +1042,16 @@ const TrainerStudio = {
         const subjectForm = document.getElementById('addSubjectForm');
         if (subjectForm) {
             subjectForm.addEventListener('submit', (e) => this.handleAddSubject(e));
+        }
+
+        const assessmentForm = document.getElementById('createAssessmentForm');
+        if (assessmentForm) {
+            assessmentForm.addEventListener('submit', (e) => this.handleCreateAssessment(e));
+        }
+
+        const questionForm = document.getElementById('addQuestionForm');
+        if (questionForm) {
+            questionForm.addEventListener('submit', (e) => this.handleAddQuestion(e));
         }
     },
 

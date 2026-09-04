@@ -52,6 +52,15 @@ const CourseLearnController = {
             const courseId = (typeof enrollment.course === 'object' ? enrollment.course.id : enrollment.course);
             this._course = await TraineeLearning.fetchCourseDetails(courseId);
 
+            // Fetch published assessments for this course
+            try {
+                const assessments = await apiRequest(`/assessments/trainee/courses/${courseId}/`);
+                this._assessments = Array.isArray(assessments) ? assessments : [];
+            } catch (e) {
+                console.warn('[CourseLearn] Could not fetch assessments:', e);
+                this._assessments = [];
+            }
+
             // Merge subject descriptions into subject_progresses
             this.mergeSubjectData();
 
@@ -208,6 +217,53 @@ const CourseLearnController = {
             descEl.textContent = currentSp.description || 'Review the module syllabus and learning objectives. When finished, mark the subject complete below.';
         }
 
+        // Check for module assessment
+        let assessmentHtml = '';
+        const moduleAssessment = (this._assessments || []).find(a => a.subject === currentSp.subject_id);
+        const courseFinalAssessment = (this._assessments || []).find(a => !a.subject);
+        const activeAssess = moduleAssessment || (this._activeSubjectIndex === progresses.length - 1 ? courseFinalAssessment : null);
+
+        if (activeAssess) {
+            const hasAttempted = activeAssess.has_attempted;
+            const passed = activeAssess.passed;
+            const statusBadge = hasAttempted
+                ? (passed
+                    ? '<span class="badge bg-success-subtle text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Passed (' + activeAssess.best_percentage + '%)</span>'
+                    : '<span class="badge bg-danger-subtle text-danger fw-bold"><i class="bi bi-x-circle me-1"></i>Failed (' + activeAssess.best_percentage + '%)</span>')
+                : '<span class="badge bg-warning-subtle text-warning fw-semibold">Not Attempted</span>';
+
+            assessmentHtml = `
+                <div class="card border-primary border-opacity-25 bg-primary bg-opacity-10 rounded-3 p-3 my-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <i class="bi bi-patch-question-fill text-primary fs-5"></i>
+                                <h6 class="fw-bold text-dark mb-0">${this.escapeHtml(activeAssess.title)}</h6>
+                                ${statusBadge}
+                            </div>
+                            <p class="text-muted small mb-0">
+                                Pass: ${activeAssess.passing_percentage}% &bull; ${activeAssess.duration_minutes} mins &bull; ${activeAssess.question_count} Questions (${activeAssess.total_marks} Marks)
+                            </p>
+                        </div>
+                        <button class="btn btn-primary btn-sm px-3 fw-semibold text-nowrap" onclick="CourseLearnController.openQuizModal(${activeAssess.id});">
+                            <i class="bi bi-play-circle me-1"></i>${hasAttempted ? 'Retake Quiz' : 'Take Quiz'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Insert or update assessment container in viewer
+        let assessContainer = document.getElementById('subjectAssessmentContainer');
+        if (!assessContainer) {
+            assessContainer = document.createElement('div');
+            assessContainer.id = 'subjectAssessmentContainer';
+            if (descEl && descEl.parentNode) {
+                descEl.parentNode.insertBefore(assessContainer, descEl.nextSibling);
+            }
+        }
+        assessContainer.innerHTML = assessmentHtml;
+
         if (toggleBtn) {
             if (currentSp.completed) {
                 toggleBtn.className = 'btn btn-outline-success fw-semibold';
@@ -316,6 +372,240 @@ const CourseLearnController = {
             this._isToggling = false;
             if (toggleBtn) toggleBtn.disabled = false;
         }
+    },
+
+    // =========================================================================
+    // QUIZ TAKING & GRADING CONTROLLER
+    // =========================================================================
+
+    _activeQuizAssessment: null,
+
+    /**
+     * Opens the interactive Quiz Taking modal.
+     */
+    async openQuizModal(assessmentId) {
+        this._activeQuizAssessment = null;
+
+        const activeBody = document.getElementById('quizActiveBody');
+        const resultBody = document.getElementById('quizResultBody');
+        const resultFooter = document.getElementById('quizResultFooter');
+        const qContainer = document.getElementById('quizQuestionsContainer');
+
+        if (activeBody) activeBody.classList.remove('d-none');
+        if (resultBody) resultBody.classList.add('d-none');
+        if (resultFooter) resultFooter.classList.add('d-none');
+
+        if (qContainer) {
+            qContainer.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary mb-2"></div>
+                    <p class="text-muted small mb-0">Loading quiz questions...</p>
+                </div>
+            `;
+        }
+
+        const modalEl = document.getElementById('traineeQuizModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+
+        try {
+            const assessment = await apiRequest(`/assessments/trainee/${assessmentId}/take/`);
+            this._activeQuizAssessment = assessment;
+
+            const titleEl = document.getElementById('traineeQuizModalTitle');
+            if (titleEl) titleEl.textContent = assessment.title || 'Interactive Quiz';
+
+            const durEl = document.getElementById('quizDurationText');
+            if (durEl) durEl.textContent = `${assessment.duration_minutes || 30} mins`;
+
+            const passEl = document.getElementById('quizPassingText');
+            if (passEl) passEl.textContent = `${assessment.passing_percentage || 70}%`;
+
+            const countBadge = document.getElementById('quizQuestionCountBadge');
+            if (countBadge) countBadge.textContent = `${(assessment.questions || []).length} Questions`;
+
+            this.renderQuizQuestions(assessment.questions || []);
+
+            // Bind submit event
+            const qForm = document.getElementById('quizQuestionsForm');
+            if (qForm) {
+                qForm.onsubmit = (e) => this.handleQuizSubmit(e, assessment.id);
+            }
+
+        } catch (err) {
+            console.error('[CourseLearn] Error loading quiz:', err);
+            if (qContainer) {
+                qContainer.innerHTML = `
+                    <div class="alert alert-danger small mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Failed to load assessment: ${this.escapeHtml(err.message)}
+                    </div>
+                `;
+            }
+        }
+    },
+
+    /**
+     * Renders MCQ questions with styled option radio cards.
+     */
+    renderQuizQuestions(questions) {
+        const container = document.getElementById('quizQuestionsContainer');
+        if (!container) return;
+
+        if (questions.length === 0) {
+            container.innerHTML = `<div class="alert alert-info small">This assessment has no questions configured yet.</div>`;
+            return;
+        }
+
+        const questionsHtml = questions.map((q, idx) => {
+            return `
+                <div class="card border rounded-3 shadow-sm p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-light text-primary border fw-semibold">Question ${q.order || (idx + 1)}</span>
+                        <span class="text-muted small">${q.marks} Mark${q.marks > 1 ? 's' : ''}</span>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-3">${this.escapeHtml(q.question_text)}</h6>
+
+                    <div class="d-flex flex-column gap-2">
+                        <label class="form-check border rounded p-2 d-flex align-items-center gap-2 cursor-pointer hover-bg-light mb-0">
+                            <input class="form-check-input ms-1" type="radio" name="q_${q.id}" value="A" required>
+                            <span class="small text-dark"><strong>A:</strong> ${this.escapeHtml(q.option_a)}</span>
+                        </label>
+                        <label class="form-check border rounded p-2 d-flex align-items-center gap-2 cursor-pointer hover-bg-light mb-0">
+                            <input class="form-check-input ms-1" type="radio" name="q_${q.id}" value="B" required>
+                            <span class="small text-dark"><strong>B:</strong> ${this.escapeHtml(q.option_b)}</span>
+                        </label>
+                        <label class="form-check border rounded p-2 d-flex align-items-center gap-2 cursor-pointer hover-bg-light mb-0">
+                            <input class="form-check-input ms-1" type="radio" name="q_${q.id}" value="C" required>
+                            <span class="small text-dark"><strong>C:</strong> ${this.escapeHtml(q.option_c)}</span>
+                        </label>
+                        <label class="form-check border rounded p-2 d-flex align-items-center gap-2 cursor-pointer hover-bg-light mb-0">
+                            <input class="form-check-input ms-1" type="radio" name="q_${q.id}" value="D" required>
+                            <span class="small text-dark"><strong>D:</strong> ${this.escapeHtml(q.option_d)}</span>
+                        </label>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = questionsHtml;
+    },
+
+    /**
+     * Handles quiz answer submission and auto-grading.
+     */
+    async handleQuizSubmit(e, assessmentId) {
+        e.preventDefault();
+        if (!this._activeQuizAssessment) return;
+
+        const questions = this._activeQuizAssessment.questions || [];
+        const answers = [];
+
+        for (const q of questions) {
+            const selectedRadio = document.querySelector(`input[name="q_${q.id}"]:checked`);
+            if (!selectedRadio) {
+                alert(`Please answer Question ${q.order} before submitting.`);
+                return;
+            }
+            answers.push({
+                question_id: q.id,
+                selected_option: selectedRadio.value,
+            });
+        }
+
+        const btn = document.getElementById('btnSubmitQuiz');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Grading...`;
+        }
+
+        try {
+            const result = await apiRequest(`/assessments/trainee/${assessmentId}/submit/`, {
+                method: 'POST',
+                body: JSON.stringify({ answers }),
+            });
+
+            this.renderQuizResult(result);
+        } catch (err) {
+            console.error('[CourseLearn] Quiz submission error:', err);
+            alert(`Failed to submit quiz: ${err.message}`);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="bi bi-send-check me-2"></i>Submit Assessment`;
+            }
+        }
+    },
+
+    /**
+     * Renders the auto-graded result screen with answer review.
+     */
+    renderQuizResult(attempt) {
+        const activeBody = document.getElementById('quizActiveBody');
+        const resultBody = document.getElementById('quizResultBody');
+        const resultFooter = document.getElementById('quizResultFooter');
+
+        if (activeBody) activeBody.classList.add('d-none');
+        if (resultBody) resultBody.classList.remove('d-none');
+        if (resultFooter) resultFooter.classList.remove('d-none');
+
+        const passBadge = attempt.passed
+            ? '<span class="badge bg-success fs-6 px-3 py-2"><i class="bi bi-check-circle-fill me-2"></i>PASSED</span>'
+            : '<span class="badge bg-danger fs-6 px-3 py-2"><i class="bi bi-x-circle-fill me-2"></i>FAILED</span>';
+
+        const reviewHtml = (attempt.answers || []).map((ans, idx) => {
+            const isCorrect = ans.is_correct;
+            const badgeClass = isCorrect ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger';
+            const icon = isCorrect ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger';
+
+            return `
+                <div class="card border mb-3 rounded-3 shadow-sm">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="badge bg-light text-dark border">Q${ans.order || (idx + 1)}</span>
+                            <span class="badge ${badgeClass}"><i class="bi ${icon} me-1"></i>${ans.marks_obtained} / ${ans.max_marks} Marks</span>
+                        </div>
+                        <p class="fw-bold text-dark mb-2">${this.escapeHtml(ans.question_text)}</p>
+
+                        <div class="small mb-1">
+                            Your Answer: <strong>Option ${ans.selected_option}</strong> &bull;
+                            Correct Answer: <strong class="text-success">Option ${ans.correct_answer}</strong>
+                        </div>
+                        ${ans.explanation ? `<div class="text-muted small fst-italic mt-1 bg-light p-2 rounded">Explanation: ${this.escapeHtml(ans.explanation)}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (resultBody) {
+            resultBody.innerHTML = `
+                <div class="text-center py-3 mb-4 border-bottom">
+                    <div class="mb-2">${passBadge}</div>
+                    <h3 class="fw-bold text-dark mb-1">${attempt.percentage}%</h3>
+                    <p class="text-muted small mb-0">
+                        Score: <strong>${attempt.score}</strong> / ${attempt.total_marks} Marks &bull; Required to Pass: <strong>${attempt.passing_percentage}%</strong>
+                    </p>
+                </div>
+
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-card-checklist me-2 text-primary"></i>Question Breakdown & Explanations</h6>
+                <div class="d-flex flex-column gap-2">
+                    ${reviewHtml}
+                </div>
+            `;
+        }
+    },
+
+    /**
+     * XSS sanitizer.
+     */
+    escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 };
 
