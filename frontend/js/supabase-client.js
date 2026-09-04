@@ -11,9 +11,12 @@
 'use strict';
 
 const SUPABASE_CONFIG = {
-    // Replace with your real Supabase Project URL and Public Anon Key in production / deployment
-    URL: window.__SUPABASE_URL__ || 'https://placeholder-project.supabase.co',
-    ANON_KEY: window.__SUPABASE_ANON_KEY__ || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder-anon-key',
+    get URL() {
+        return window.__SUPABASE_URL__ || '';
+    },
+    get ANON_KEY() {
+        return window.__SUPABASE_ANON_KEY__ || '';
+    },
 };
 
 let supabaseClient = null;
@@ -23,11 +26,20 @@ let supabaseClient = null;
  */
 function getSupabase() {
     if (!supabaseClient) {
+        const url = SUPABASE_CONFIG.URL;
+        const anonKey = SUPABASE_CONFIG.ANON_KEY;
+
+        if (!url || !anonKey || url.includes('placeholder-project')) {
+            console.error('[Supabase] Supabase is not configured. Ensure frontend/js/supabase-config.js is loaded and defines valid window.__SUPABASE_URL__ and window.__SUPABASE_ANON_KEY__.');
+            return null;
+        }
+
         if (typeof window.supabase === 'undefined' || !window.supabase.createClient) {
             console.error('[Supabase] Supabase JS library is not loaded. Ensure CDN script tag is included.');
             return null;
         }
-        supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.ANON_KEY, {
+
+        supabaseClient = window.supabase.createClient(url, anonKey, {
             auth: {
                 autoRefreshToken: true,
                 persistSession: true,

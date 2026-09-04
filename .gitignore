@@ -14,10 +14,12 @@ db.sqlite3
 media/
 staticfiles/
 
-# Environment variables
+# Environment variables & Local config
 .env
 .env.*
 !.env.example
+frontend/js/supabase-config.js
+!frontend/js/supabase-config.example.js
 
 # IDE
 .vscode/
