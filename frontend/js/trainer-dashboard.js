@@ -1154,6 +1154,51 @@ const TrainerStudio = {
     },
 
     /**
+     * Load student reviews and instructor quality feedback (Step 14).
+     */
+    async loadTrainerFeedback() {
+        const container = document.getElementById('trainerFeedbackContainer');
+        const badge = document.getElementById('trainerAvgRatingBadge');
+        if (!container) return;
+
+        try {
+            const data = await apiRequest('/reviews/trainer/feedback/');
+            const avg = data.trainer_average_rating || 0.0;
+            const reviews = data.reviews || [];
+
+            if (badge) {
+                badge.textContent = `★ ${avg.toFixed(1)} (${data.total_reviews || 0})`;
+            }
+
+            if (reviews.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-3 text-muted small">
+                        <i class="bi bi-chat-square-heart me-1"></i>No student reviews received yet.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = reviews.slice(0, 5).map(r => {
+                const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
+                return `
+                    <div class="border-bottom pb-2 mb-2 small">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold text-dark text-truncate" style="max-width: 140px;">${this.escapeHtml(r.trainee_username)}</span>
+                            <span class="text-warning fw-bold">★ ${r.rating}</span>
+                        </div>
+                        <div class="text-muted" style="font-size:0.75rem;">${this.escapeHtml(r.course_title)} &bull; ${dateStr}</div>
+                        <p class="text-secondary mb-0 mt-1" style="font-size:0.8rem; line-height:1.4;">${this.escapeHtml(r.comment)}</p>
+                    </div>
+                `;
+            }).join('');
+        } catch (err) {
+            console.debug('[TrainerStudio] Could not load trainer feedback:', err.message);
+            container.innerHTML = `<div class="text-muted small">Unable to load reviews.</div>`;
+        }
+    },
+
+    /**
      * XSS sanitizer helper.
      */
     escapeHtml(str) {

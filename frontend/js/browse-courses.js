@@ -211,11 +211,21 @@ const BrowseCoursesController = {
                             ${TraineeLearning.escapeHtml(course.title)}
                         </h5>
 
-                        <div class="d-flex align-items-center text-muted small mb-3">
+                        <div class="d-flex align-items-center text-muted small mb-2">
                             <i class="bi bi-clock me-1 text-primary"></i>
                             <span class="me-3">${durationHours} hrs</span>
                             <i class="bi bi-person me-1 text-primary"></i>
                             <span class="text-truncate">${TraineeLearning.escapeHtml(trainerName)}</span>
+                        </div>
+
+                        <!-- Course Star Rating Badge (Step 14) -->
+                        <div class="d-flex align-items-center mb-3 small">
+                            ${parseFloat(course.average_rating) > 0 ? `
+                                <span class="text-warning fw-bold me-1"><i class="bi bi-star-fill me-1"></i>${parseFloat(course.average_rating).toFixed(1)}</span>
+                                <span class="text-muted">(${course.review_count || 0})</span>
+                            ` : `
+                                <span class="text-muted"><i class="bi bi-star me-1"></i>New (No ratings)</span>
+                            `}
                         </div>
 
                         <div class="mt-auto pt-2">

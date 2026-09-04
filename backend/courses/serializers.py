@@ -73,6 +73,8 @@ class CourseListSerializer(serializers.ModelSerializer):
             'status',
             'duration_hours',
             'trainer',
+            'average_rating',
+            'review_count',
             'created_at',
             'updated_at',
         ]
@@ -97,6 +99,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'requirements',
             'learning_objectives',
             'trainer',
+            'average_rating',
+            'review_count',
             'subjects',
             'created_at',
             'updated_at',

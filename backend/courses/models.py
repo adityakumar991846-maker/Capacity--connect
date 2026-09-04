@@ -72,6 +72,16 @@ class Course(models.Model):
         on_delete=models.CASCADE,
         related_name='courses',
     )
+    average_rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.00,
+        help_text='Cached aggregate average rating from 1.00 to 5.00',
+    )
+    review_count = models.PositiveIntegerField(
+        default=0,
+        help_text='Cached count of visible student reviews',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -82,6 +92,21 @@ class Course(models.Model):
 
     def __str__(self):
         return f'{self.title} ({self.get_status_display()})'
+
+    def update_rating_stats(self):
+        """
+        Recalculate average rating and review count from visible reviews.
+        """
+        from django.db.models import Avg, Count
+        stats = self.reviews.filter(is_visible=True).aggregate(
+            avg_score=Avg('rating'),
+            total_count=Count('id')
+        )
+        avg = stats.get('avg_score') or 0.0
+        count = stats.get('total_count') or 0
+        self.average_rating = round(avg, 2)
+        self.review_count = count
+        self.save(update_fields=['average_rating', 'review_count'])
 
 
 class Subject(models.Model):

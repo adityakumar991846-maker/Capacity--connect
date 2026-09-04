@@ -327,7 +327,7 @@
                     </div>
 
                     <!-- Platform Notice -->
-                    <div class="cc-card shadow-sm">
+                    <div class="cc-card shadow-sm mb-4">
                         <div class="cc-card-header">
                             <h6 class="fw-bold mb-0 text-dark">
                                 <i class="bi bi-shield-check text-success me-2"></i>Capacity Connect Studio
@@ -338,6 +338,19 @@
                             <p class="mb-0">
                                 Your course metrics update in real time as trainees complete modules and progress through your training curricula.
                             </p>
+                        </div>
+                    </div>
+
+                    <!-- Student Reviews & Feedback Card (Step 14) -->
+                    <div class="cc-card shadow-sm" id="trainerFeedbackCard">
+                        <div class="cc-card-header d-flex justify-content-between align-items-center">
+                            <h6 class="fw-bold mb-0 text-dark">
+                                <i class="bi bi-star-fill text-warning me-2"></i>Student Reviews
+                            </h6>
+                            <span class="badge bg-warning-subtle text-dark fw-bold" id="trainerAvgRatingBadge">★ 0.0</span>
+                        </div>
+                        <div class="cc-card-body p-3" id="trainerFeedbackContainer">
+                            <div class="text-center py-3 text-muted small">Loading reviews...</div>
                         </div>
                     </div>
                 </div>
@@ -752,6 +765,7 @@
     <script src="../js/trainer-dashboard.js"></script>
     <script src="../js/discussions.js"></script>
     <script src="../js/assignments.js"></script>
+    <script src="../js/reviews.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
@@ -762,6 +776,9 @@
             }
             if (typeof AssignmentsController !== 'undefined') {
                 AssignmentsController.loadTrainerPendingReviews();
+            }
+            if (typeof TrainerStudio !== 'undefined' && TrainerStudio.loadTrainerFeedback) {
+                TrainerStudio.loadTrainerFeedback();
             }
         });
     </script>

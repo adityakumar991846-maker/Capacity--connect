@@ -61,6 +61,15 @@ const CourseDetailsController = {
 
             this.renderCourse(course);
 
+            // Initialize Step 14 Course Reviews & Ratings
+            if (typeof ReviewsController !== 'undefined') {
+                await ReviewsController.loadCourseReviews(numericId);
+                const writeReviewBtn = document.getElementById('btnWriteCourseReview');
+                if (writeReviewBtn && this._existingEnrollment) {
+                    writeReviewBtn.classList.remove('d-none');
+                }
+            }
+
             if (loadingContainer) loadingContainer.classList.add('d-none');
             if (contentContainer) contentContainer.classList.remove('d-none');
 
