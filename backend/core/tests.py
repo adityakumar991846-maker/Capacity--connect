@@ -696,3 +696,32 @@ class Step16ProductionHardeningTests(TestCase):
                     raise ValueError('CRITICAL SECURITY CONFIGURATION ERROR')
 
 
+class Step18DeploymentArtifactTests(TestCase):
+    """
+    Automated verification of Step 18 WhiteNoise, static storage, database connection pooling, and deployment setup.
+    """
+
+    def test_whitenoise_middleware_configured(self):
+        """Verify WhiteNoiseMiddleware is registered immediately after SecurityMiddleware."""
+        from django.conf import settings
+        self.assertIn('whitenoise.middleware.WhiteNoiseMiddleware', settings.MIDDLEWARE)
+        sec_idx = settings.MIDDLEWARE.index('django.middleware.security.SecurityMiddleware')
+        wn_idx = settings.MIDDLEWARE.index('whitenoise.middleware.WhiteNoiseMiddleware')
+        self.assertEqual(wn_idx, sec_idx + 1)
+
+    def test_database_conn_max_age_configured(self):
+        """Verify default database has CONN_MAX_AGE configured."""
+        from django.conf import settings
+        db_conf = settings.DATABASES['default']
+        self.assertIn('CONN_MAX_AGE', db_conf)
+        self.assertIsInstance(db_conf['CONN_MAX_AGE'], int)
+        self.assertGreaterEqual(db_conf['CONN_MAX_AGE'], 0)
+
+    def test_static_storage_configuration(self):
+        """Verify STORAGES defines default and staticfiles storage backends."""
+        from django.conf import settings
+        self.assertIn('staticfiles', settings.STORAGES)
+        self.assertIn('default', settings.STORAGES)
+
+
+
