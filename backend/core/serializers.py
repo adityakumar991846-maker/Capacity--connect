@@ -86,3 +86,53 @@ class UserSerializer(serializers.Serializer):
             return str(obj.profile.supabase_uid)
         return None
 
+
+class AdminUserListSerializer(serializers.Serializer):
+    """Admin roster list serializer for platform users."""
+    id = serializers.IntegerField(read_only=True)
+    username = serializers.CharField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    role = serializers.SerializerMethodField()
+    is_active = serializers.BooleanField(read_only=True)
+    date_joined = serializers.DateTimeField(read_only=True)
+    last_login = serializers.DateTimeField(read_only=True, allow_null=True)
+
+    def get_role(self, obj):
+        if hasattr(obj, 'profile'):
+            return obj.profile.role
+        return None
+
+
+class AdminUserDetailSerializer(serializers.Serializer):
+    """Admin detailed user view with activity counts."""
+    id = serializers.IntegerField(read_only=True)
+    username = serializers.CharField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    role = serializers.SerializerMethodField()
+    is_active = serializers.BooleanField(read_only=True)
+    date_joined = serializers.DateTimeField(read_only=True)
+    last_login = serializers.DateTimeField(read_only=True, allow_null=True)
+    supabase_uid = serializers.SerializerMethodField()
+    courses_count = serializers.SerializerMethodField()
+    enrollments_count = serializers.SerializerMethodField()
+    certificates_count = serializers.SerializerMethodField()
+
+    def get_role(self, obj):
+        if hasattr(obj, 'profile'):
+            return obj.profile.role
+        return None
+
+    def get_supabase_uid(self, obj):
+        if hasattr(obj, 'profile') and obj.profile.supabase_uid:
+            return str(obj.profile.supabase_uid)
+        return None
+
+    def get_courses_count(self, obj):
+        return obj.courses.count() if hasattr(obj, 'courses') else 0
+
+    def get_enrollments_count(self, obj):
+        return obj.enrollments.count() if hasattr(obj, 'enrollments') else 0
+
+    def get_certificates_count(self, obj):
+        return obj.certificates.count() if hasattr(obj, 'certificates') else 0
+

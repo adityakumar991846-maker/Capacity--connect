@@ -12,12 +12,14 @@ from rest_framework.views import APIView
 from core.models import Role
 from courses.models import Course, Subject
 from .models import Enrollment, EnrollmentStatus, SubjectProgress
+from courses.permissions import IsAdmin as IsAdminPerm
 from .permissions import IsAdmin, IsTrainee, IsTrainer
 from .serializers import (
     EnrollmentCreateSerializer,
     EnrollmentDetailSerializer,
     EnrollmentListSerializer,
     SubjectProgressSerializer,
+    AdminEnrollmentListSerializer,
 )
 
 
@@ -206,3 +208,20 @@ class CourseEnrollmentsListView(APIView):
             return Response(serializer.data)
 
         raise PermissionDenied('You do not have permission to view enrollments for this course.')
+
+
+class AdminEnrollmentListView(APIView):
+    """
+    GET /api/enrollments/admin/all/ — All enrollments (Admin only) with optional status filter.
+    """
+    permission_classes = [IsAuthenticated, IsAdminPerm]
+
+    def get(self, request):
+        enrollments = Enrollment.objects.select_related('trainee', 'course').all().order_by('-enrolled_at')
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            enrollments = enrollments.filter(status=status_filter.upper())
+
+        serializer = AdminEnrollmentListSerializer(enrollments, many=True)
+        return Response(serializer.data)

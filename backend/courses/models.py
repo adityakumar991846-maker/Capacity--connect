@@ -27,6 +27,7 @@ class CourseStatus(models.TextChoices):
     DRAFT = 'DRAFT', 'Draft'
     PUBLISHED = 'PUBLISHED', 'Published'
     ARCHIVED = 'ARCHIVED', 'Archived'
+    REJECTED = 'REJECTED', 'Rejected'
 
 
 class Course(models.Model):
@@ -60,6 +61,11 @@ class Course(models.Model):
         blank=True,
         default='',
         help_text='What students will learn',
+    )
+    rejection_reason = models.TextField(
+        blank=True,
+        default='',
+        help_text='Admin feedback when a course submission is rejected',
     )
     trainer = models.ForeignKey(
         settings.AUTH_USER_MODEL,

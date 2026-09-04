@@ -475,3 +475,73 @@ class CascadeAndSyncTests(EnrollmentTestBase):
         self.assertEqual(len(response.data['subject_progresses']), 3)
         # 2 out of 3 completed = 66.67%
         self.assertEqual(response.data['progress_percentage'], 66.67)
+
+
+class AdminEnrollmentOverviewTests(TestCase):
+    """Tests for Admin Enrollment Overview endpoints (Step 11)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_superuser(
+            username='admin_boss',
+            email='admin_boss@example.com',
+            password='Password123!',
+        )
+        self.admin.profile.role = Role.ADMIN
+        self.admin.profile.save()
+
+        self.trainer = User.objects.create_user(
+            username='trainer_mark',
+            email='trainer_mark@example.com',
+            password='Password123!',
+        )
+        UserProfile.objects.create(user=self.trainer, role=Role.TRAINER)
+
+        self.trainee = User.objects.create_user(
+            username='trainee_john',
+            email='trainee_john@example.com',
+            password='Password123!',
+        )
+        UserProfile.objects.create(user=self.trainee, role=Role.TRAINEE)
+
+        self.course = Course.objects.create(
+            title='Web Dev',
+            description='HTML/CSS',
+            category='Tech',
+            level='BEGINNER',
+            duration_hours=10,
+            status=CourseStatus.PUBLISHED,
+            trainer=self.trainer,
+        )
+        self.enrollment = Enrollment.objects.create(
+            trainee=self.trainee,
+            course=self.course,
+            status=EnrollmentStatus.COMPLETED,
+        )
+
+    def test_admin_can_list_all_enrollments(self):
+        """Admin can list all platform enrollments."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/enrollments/admin/all/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['trainee_username'], 'trainee_john')
+        self.assertEqual(response.data[0]['course_title'], 'Web Dev')
+
+    def test_admin_can_filter_enrollments_by_status(self):
+        """Admin can filter enrollments by status query parameter."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/enrollments/admin/all/?status=COMPLETED')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+
+        response_empty = self.client.get('/api/enrollments/admin/all/?status=DROPPED')
+        self.assertEqual(response_empty.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response_empty.data), 0)
+
+    def test_non_admin_cannot_list_all_enrollments(self):
+        """Trainee or Trainer receives 403 on admin enrollment list endpoint."""
+        self.client.force_authenticate(user=self.trainee)
+        response = self.client.get('/api/enrollments/admin/all/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+

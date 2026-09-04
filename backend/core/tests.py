@@ -563,3 +563,94 @@ class ControlledAccountLinkingTests(TestCase):
 
         with self.assertRaises(CommandError):
             call_command('link_supabase_user', username='user2', supabase_uid=str(existing_uid))
+
+
+class AdminUserManagementTests(TestCase):
+    """Tests for Admin User Management endpoints (Step 11)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_superuser(
+            username='admin_boss',
+            email='admin_boss@example.com',
+            password='Password123!',
+        )
+        self.admin.profile.role = Role.ADMIN
+        self.admin.profile.save()
+
+        self.trainer = User.objects.create_user(
+            username='trainer_bob',
+            email='trainer_bob@example.com',
+            password='Password123!',
+        )
+        UserProfile.objects.create(user=self.trainer, role=Role.TRAINER)
+
+        self.trainee = User.objects.create_user(
+            username='trainee_alice',
+            email='trainee_alice@example.com',
+            password='Password123!',
+        )
+        UserProfile.objects.create(user=self.trainee, role=Role.TRAINEE)
+
+    def test_admin_can_list_all_users(self):
+        """Admin can list all platform users."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/auth/admin/users/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 3)
+        usernames = [u['username'] for u in response.data]
+        self.assertIn('admin_boss', usernames)
+        self.assertIn('trainer_bob', usernames)
+        self.assertIn('trainee_alice', usernames)
+
+    def test_admin_can_filter_users_by_role(self):
+        """Admin can filter users by role query parameter."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/auth/admin/users/?role=TRAINER')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for u in response.data:
+            self.assertEqual(u['role'], 'TRAINER')
+
+    def test_admin_can_search_users(self):
+        """Admin can search users by username or email."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/auth/admin/users/?search=alice')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['username'], 'trainee_alice')
+
+    def test_admin_can_view_user_detail(self):
+        """Admin can view detailed stats of a user."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(f'/api/auth/admin/users/{self.trainee.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'trainee_alice')
+        self.assertIn('courses_count', response.data)
+        self.assertIn('enrollments_count', response.data)
+        self.assertIn('certificates_count', response.data)
+
+    def test_admin_can_deactivate_user(self):
+        """Admin can deactivate an active non-admin user."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(f'/api/auth/admin/users/{self.trainee.id}/deactivate/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.trainee.refresh_from_db()
+        self.assertFalse(self.trainee.is_active)
+
+    def test_admin_cannot_deactivate_self(self):
+        """Admin cannot deactivate their own account."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(f'/api/auth/admin/users/{self.admin.id}/deactivate/')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Cannot deactivate your own account', response.data['detail'])
+
+    def test_admin_can_activate_inactive_user(self):
+        """Admin can reactivate a previously deactivated user."""
+        self.trainee.is_active = False
+        self.trainee.save()
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(f'/api/auth/admin/users/{self.trainee.id}/activate/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.trainee.refresh_from_db()
+        self.assertTrue(self.trainee.is_active)
+

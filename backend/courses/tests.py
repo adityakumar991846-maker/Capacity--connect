@@ -761,3 +761,130 @@ class TrainerStudioTests(CourseTestBase):
         resp_roster = self.client.get(url_roster)
         self.assertEqual(resp_roster.status_code, status.HTTP_200_OK)
         self.assertEqual(len(resp_roster.data), 1)
+
+
+class AdminCourseGovernanceTests(TestCase):
+    """Tests for Admin Platform Stats and Course Governance (Step 11)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_superuser(
+            username='admin_boss',
+            email='admin_boss@example.com',
+            password='Password123!',
+        )
+        self.admin.profile.role = Role.ADMIN
+        self.admin.profile.save()
+
+        self.trainer = User.objects.create_user(
+            username='trainer_mark',
+            email='trainer_mark@example.com',
+            password='Password123!',
+        )
+        UserProfile.objects.create(user=self.trainer, role=Role.TRAINER)
+
+        self.trainee = User.objects.create_user(
+            username='trainee_john',
+            email='trainee_john@example.com',
+            password='Password123!',
+        )
+        UserProfile.objects.create(user=self.trainee, role=Role.TRAINEE)
+
+        self.draft_course = Course.objects.create(
+            title='Draft Course for Review',
+            description='Test Desc',
+            category='Tech',
+            level=CourseLevel.BEGINNER,
+            duration_hours=5,
+            status=CourseStatus.DRAFT,
+            trainer=self.trainer,
+        )
+
+        self.published_course = Course.objects.create(
+            title='Live Active Course',
+            description='Test Desc',
+            category='Tech',
+            level=CourseLevel.INTERMEDIATE,
+            duration_hours=10,
+            status=CourseStatus.PUBLISHED,
+            trainer=self.trainer,
+        )
+
+    def test_admin_can_get_platform_stats(self):
+        """Admin can get full platform stats."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/courses/admin/platform-stats/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('total_users', response.data)
+        self.assertIn('total_courses', response.data)
+        self.assertIn('draft_courses', response.data)
+        self.assertIn('published_courses', response.data)
+
+    def test_trainer_cannot_access_platform_stats(self):
+        """Trainer receives 403 on admin platform stats."""
+        self.client.force_authenticate(user=self.trainer)
+        response = self.client.get('/api/courses/admin/platform-stats/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_trainee_cannot_access_platform_stats(self):
+        """Trainee receives 403 on admin platform stats."""
+        self.client.force_authenticate(user=self.trainee)
+        response = self.client.get('/api/courses/admin/platform-stats/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_list_all_courses(self):
+        """Admin can list all courses across all statuses."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/courses/admin/courses/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    def test_admin_can_filter_courses_by_status(self):
+        """Admin can filter courses by status query parameter."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/courses/admin/courses/?status=DRAFT')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['status'], 'DRAFT')
+
+    def test_admin_can_publish_draft_course(self):
+        """Admin can approve and publish a DRAFT course."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(f'/api/courses/admin/courses/{self.draft_course.id}/publish/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.draft_course.refresh_from_db()
+        self.assertEqual(self.draft_course.status, CourseStatus.PUBLISHED)
+
+    def test_admin_cannot_publish_non_draft_course(self):
+        """Admin receives 400 when attempting to publish an already published course."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(f'/api/courses/admin/courses/{self.published_course.id}/publish/')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_admin_can_reject_draft_course_with_reason(self):
+        """Admin can reject a DRAFT course with mandatory reason."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            f'/api/courses/admin/courses/{self.draft_course.id}/reject/',
+            {'reason': 'Needs more curriculum details.'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.draft_course.refresh_from_db()
+        self.assertEqual(self.draft_course.status, CourseStatus.REJECTED)
+        self.assertEqual(self.draft_course.rejection_reason, 'Needs more curriculum details.')
+
+    def test_admin_can_archive_published_course(self):
+        """Admin can archive an active published course."""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(f'/api/courses/admin/courses/{self.published_course.id}/archive/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.published_course.refresh_from_db()
+        self.assertEqual(self.published_course.status, CourseStatus.ARCHIVED)
+
+    def test_non_admin_cannot_publish_course(self):
+        """Trainers and trainees cannot call the publish endpoint."""
+        self.client.force_authenticate(user=self.trainer)
+        response = self.client.post(f'/api/courses/admin/courses/{self.draft_course.id}/publish/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+

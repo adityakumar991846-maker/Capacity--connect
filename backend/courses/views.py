@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 
 from core.models import Role
 from .models import Course, CourseStatus, Subject
-from .permissions import IsTrainerOrAdmin
+from .permissions import IsTrainerOrAdmin, IsAdmin
 from .serializers import (
     CourseCreateUpdateSerializer,
     CourseDetailSerializer,
@@ -24,6 +24,8 @@ from .serializers import (
     TrainerCourseItemSerializer,
     TrainerCourseRosterItemSerializer,
     TrainerDashboardStatsSerializer,
+    AdminPlatformStatsSerializer,
+    AdminCourseListSerializer,
 )
 
 
@@ -354,3 +356,152 @@ class TrainerCourseRosterView(APIView):
 
         serializer = TrainerCourseRosterItemSerializer(roster_data, many=True)
         return Response(serializer.data)
+
+
+class AdminPlatformStatsView(APIView):
+    """
+    GET /api/courses/admin/platform-stats/ — Platform-wide KPI dashboard metrics.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        from django.contrib.auth.models import User
+        from enrollments.models import Enrollment, EnrollmentStatus
+        from certificates.models import Certificate
+
+        # User stats
+        total_users = User.objects.count()
+        total_trainers = User.objects.filter(profile__role=Role.TRAINER).count()
+        total_trainees = User.objects.filter(profile__role=Role.TRAINEE).count()
+
+        # Course stats
+        total_courses = Course.objects.count()
+        draft_courses = Course.objects.filter(status=CourseStatus.DRAFT).count()
+        published_courses = Course.objects.filter(status=CourseStatus.PUBLISHED).count()
+        archived_courses = Course.objects.filter(status=CourseStatus.ARCHIVED).count()
+        rejected_courses = Course.objects.filter(status=CourseStatus.REJECTED).count()
+
+        # Enrollment stats
+        total_enrollments = Enrollment.objects.count()
+        active_enrollments = Enrollment.objects.filter(status=EnrollmentStatus.ENROLLED).count()
+        completed_enrollments = Enrollment.objects.filter(status=EnrollmentStatus.COMPLETED).count()
+        dropped_enrollments = Enrollment.objects.filter(status=EnrollmentStatus.DROPPED).count()
+
+        # Certificate stats
+        total_certificates = Certificate.objects.count()
+        revoked_certificates = Certificate.objects.filter(is_revoked=True).count()
+
+        # Platform average completion
+        all_enrollments = list(Enrollment.objects.exclude(status=EnrollmentStatus.DROPPED))
+        if all_enrollments:
+            platform_avg = round(
+                sum(e.progress_percentage for e in all_enrollments) / len(all_enrollments), 2
+            )
+        else:
+            platform_avg = 0.0
+
+        data = {
+            'total_users': total_users,
+            'total_trainers': total_trainers,
+            'total_trainees': total_trainees,
+            'total_courses': total_courses,
+            'draft_courses': draft_courses,
+            'published_courses': published_courses,
+            'archived_courses': archived_courses,
+            'rejected_courses': rejected_courses,
+            'total_enrollments': total_enrollments,
+            'active_enrollments': active_enrollments,
+            'completed_enrollments': completed_enrollments,
+            'dropped_enrollments': dropped_enrollments,
+            'total_certificates': total_certificates,
+            'revoked_certificates': revoked_certificates,
+            'platform_avg_completion': platform_avg,
+        }
+        serializer = AdminPlatformStatsSerializer(data)
+        return Response(serializer.data)
+
+
+class AdminCourseListView(APIView):
+    """
+    GET /api/courses/admin/courses/ — All courses with optional status filter.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        courses = Course.objects.select_related('trainer').prefetch_related('subjects', 'enrollments').all()
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            courses = courses.filter(status=status_filter.upper())
+
+        serializer = AdminCourseListSerializer(courses, many=True)
+        return Response(serializer.data)
+
+
+class AdminCoursePublishView(APIView):
+    """
+    POST /api/courses/admin/courses/<pk>/publish/ — Approve and publish a DRAFT course.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        course = get_object_or_404(Course, pk=pk)
+
+        if course.status != CourseStatus.DRAFT:
+            return Response(
+                {'detail': 'Only DRAFT courses can be published.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        course.status = CourseStatus.PUBLISHED
+        course.rejection_reason = ''
+        course.save(update_fields=['status', 'rejection_reason', 'updated_at'])
+        return Response(CourseDetailSerializer(course).data)
+
+
+class AdminCourseRejectView(APIView):
+    """
+    POST /api/courses/admin/courses/<pk>/reject/ — Reject a DRAFT course with reason.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        course = get_object_or_404(Course, pk=pk)
+
+        if course.status != CourseStatus.DRAFT:
+            return Response(
+                {'detail': 'Only DRAFT courses can be rejected.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reason = request.data.get('reason', '').strip()
+        if not reason:
+            return Response(
+                {'detail': 'A rejection reason is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        course.status = CourseStatus.REJECTED
+        course.rejection_reason = reason
+        course.save(update_fields=['status', 'rejection_reason', 'updated_at'])
+        return Response(CourseDetailSerializer(course).data)
+
+
+class AdminCourseArchiveView(APIView):
+    """
+    POST /api/courses/admin/courses/<pk>/archive/ — Archive a PUBLISHED course.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        course = get_object_or_404(Course, pk=pk)
+
+        if course.status != CourseStatus.PUBLISHED:
+            return Response(
+                {'detail': 'Only PUBLISHED courses can be archived.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        course.status = CourseStatus.ARCHIVED
+        course.save(update_fields=['status', 'updated_at'])
+        return Response(CourseDetailSerializer(course).data)

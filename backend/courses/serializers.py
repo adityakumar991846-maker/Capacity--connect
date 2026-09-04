@@ -245,3 +245,54 @@ class TrainerCourseRosterItemSerializer(serializers.Serializer):
     enrolled_at = serializers.DateTimeField()
     completed_at = serializers.DateTimeField(allow_null=True)
     last_accessed_at = serializers.DateTimeField()
+
+
+class AdminPlatformStatsSerializer(serializers.Serializer):
+    """Serializer for admin platform-wide KPI metrics."""
+    total_users = serializers.IntegerField()
+    total_trainers = serializers.IntegerField()
+    total_trainees = serializers.IntegerField()
+    total_courses = serializers.IntegerField()
+    draft_courses = serializers.IntegerField()
+    published_courses = serializers.IntegerField()
+    archived_courses = serializers.IntegerField()
+    rejected_courses = serializers.IntegerField()
+    total_enrollments = serializers.IntegerField()
+    active_enrollments = serializers.IntegerField()
+    completed_enrollments = serializers.IntegerField()
+    dropped_enrollments = serializers.IntegerField()
+    total_certificates = serializers.IntegerField()
+    revoked_certificates = serializers.IntegerField()
+    platform_avg_completion = serializers.FloatField()
+
+
+class AdminCourseListSerializer(serializers.ModelSerializer):
+    """Admin course list with trainer info and metrics."""
+    trainer_username = serializers.CharField(source='trainer.username', read_only=True)
+    trainer_email = serializers.EmailField(source='trainer.email', read_only=True)
+    enrollment_count = serializers.SerializerMethodField()
+    subject_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Course
+        fields = [
+            'id',
+            'title',
+            'category',
+            'level',
+            'status',
+            'duration_hours',
+            'trainer_username',
+            'trainer_email',
+            'enrollment_count',
+            'subject_count',
+            'rejection_reason',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_enrollment_count(self, obj):
+        return obj.enrollments.count()
+
+    def get_subject_count(self, obj):
+        return obj.subjects.count()

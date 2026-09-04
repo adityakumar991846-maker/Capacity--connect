@@ -52,7 +52,7 @@
                 <i class="bi bi-speedometer2"></i>
                 <span>Dashboard</span>
             </a>
-            <a href="#" class="cc-nav-link">
+            <a href="#" class="cc-nav-link admin-section-tab" data-section="users">
                 <i class="bi bi-people-fill"></i>
                 <span>Users</span>
             </a>
@@ -66,13 +66,17 @@
             </a>
 
             <div class="cc-nav-section-title mt-3">Governance &amp; Catalog</div>
-            <a href="#" class="cc-nav-link">
+            <a href="#" class="cc-nav-link admin-section-tab" data-section="courses">
                 <i class="bi bi-journal-check"></i>
                 <span>Courses</span>
             </a>
-            <a href="#" class="cc-nav-link">
+            <a href="#" class="cc-nav-link admin-section-tab" data-section="enrollments">
                 <i class="bi bi-card-checklist"></i>
                 <span>Enrollments</span>
+            </a>
+            <a href="#" class="cc-nav-link admin-section-tab" data-section="certificates">
+                <i class="bi bi-award"></i>
+                <span>Certificates</span>
             </a>
             <a href="#" class="cc-nav-link">
                 <i class="bi bi-ui-checks"></i>
@@ -192,7 +196,7 @@
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Total Users</div>
-                            <div class="cc-stat-value fs-4">0</div>
+                            <div class="cc-stat-value fs-4" id="statTotalUsers">0</div>
                             <div class="cc-stat-subtext">Registered accounts</div>
                         </div>
                     </div>
@@ -201,7 +205,7 @@
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Trainers</div>
-                            <div class="cc-stat-value fs-4 text-warning">0</div>
+                            <div class="cc-stat-value fs-4 text-warning" id="statTrainers">0</div>
                             <div class="cc-stat-subtext">Instructors</div>
                         </div>
                     </div>
@@ -210,7 +214,7 @@
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Trainees</div>
-                            <div class="cc-stat-value fs-4 text-info">0</div>
+                            <div class="cc-stat-value fs-4 text-info" id="statTrainees">0</div>
                             <div class="cc-stat-subtext">Active learners</div>
                         </div>
                     </div>
@@ -219,7 +223,7 @@
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Courses</div>
-                            <div class="cc-stat-value fs-4 text-primary">0</div>
+                            <div class="cc-stat-value fs-4 text-primary" id="statTotalCourses">0</div>
                             <div class="cc-stat-subtext">Total catalog</div>
                         </div>
                     </div>
@@ -228,7 +232,7 @@
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Enrollments</div>
-                            <div class="cc-stat-value fs-4 text-success">0</div>
+                            <div class="cc-stat-value fs-4 text-success" id="statEnrollments">0</div>
                             <div class="cc-stat-subtext">Active learning</div>
                         </div>
                     </div>
@@ -237,90 +241,163 @@
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Completion</div>
-                            <div class="cc-stat-value fs-4 text-purple">0%</div>
+                            <div class="cc-stat-value fs-4 text-purple" id="statAvgCompletion">0%</div>
                             <div class="cc-stat-subtext">Platform avg.</div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- Main Content Grid -->
-            <div class="row g-4">
-                <!-- Left Column (Course Approvals & Platform Activity) -->
-                <div class="col-lg-8">
-                    <!-- Pending Course Approvals Panel -->
-                    <div class="cc-card mb-4 shadow-sm">
-                        <div class="cc-card-header">
+            <!-- Section Navigation Tabs -->
+            <ul class="nav nav-tabs mb-4">
+                <li class="nav-item">
+                    <a class="nav-link admin-section-tab active fw-semibold text-dark" href="#" data-section="courses">
+                        <i class="bi bi-journal-check text-primary me-1"></i>Course Approvals
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link admin-section-tab fw-semibold text-dark" href="#" data-section="users">
+                        <i class="bi bi-people text-success me-1"></i>User Management
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link admin-section-tab fw-semibold text-dark" href="#" data-section="certificates">
+                        <i class="bi bi-award text-warning me-1"></i>Certificates
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link admin-section-tab fw-semibold text-dark" href="#" data-section="enrollments">
+                        <i class="bi bi-card-checklist text-info me-1"></i>Enrollments
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Sections Container -->
+            <div class="admin-sections-container">
+                <!-- COURSE APPROVALS SECTION -->
+                <div class="admin-panel-section" id="section-courses">
+                    <div class="cc-card shadow-sm">
+                        <div class="cc-card-header d-flex justify-content-between align-items-center">
                             <h5 class="fw-bold mb-0 text-dark">
                                 <i class="bi bi-clock-history text-danger me-2"></i>Course Publication Approvals
                             </h5>
-                            <span class="badge bg-secondary-subtle text-muted">0 Pending</span>
+                            <span class="badge bg-secondary-subtle text-muted" id="pendingApprovalsBadge">0 Pending</span>
                         </div>
-                        <div class="cc-card-body">
-                            <div class="p-4 text-center bg-light rounded-3">
-                                <i class="bi bi-check2-all fs-2 text-success mb-2 d-block"></i>
-                                <h6 class="fw-bold text-dark">No Pending Submissions</h6>
-                                <p class="text-muted small mb-0">All submitted courses have been reviewed and processed.</p>
+                        <div class="cc-card-body p-0">
+                            <!-- Filter Tabs -->
+                            <div class="bg-light border-bottom px-3 py-2 d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary course-filter-tab active" data-status="" onclick="AdminDashboard.filterCourses('')">All</button>
+                                <button class="btn btn-sm btn-outline-warning course-filter-tab" data-status="DRAFT" onclick="AdminDashboard.filterCourses('DRAFT')">Drafts</button>
+                                <button class="btn btn-sm btn-outline-success course-filter-tab" data-status="PUBLISHED" onclick="AdminDashboard.filterCourses('PUBLISHED')">Published</button>
+                                <button class="btn btn-sm btn-outline-danger course-filter-tab" data-status="REJECTED" onclick="AdminDashboard.filterCourses('REJECTED')">Rejected</button>
+                                <button class="btn btn-sm btn-outline-secondary course-filter-tab" data-status="ARCHIVED" onclick="AdminDashboard.filterCourses('ARCHIVED')">Archived</button>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Platform Analytics (Placeholder) -->
-                    <div class="cc-card shadow-sm">
-                        <div class="cc-card-header">
-                            <h5 class="fw-bold mb-0 text-dark">
-                                <i class="bi bi-pie-chart-fill text-primary me-2"></i>Platform Growth &amp; Engagement
-                            </h5>
-                            <span class="badge bg-primary-subtle text-primary">Module 10</span>
-                        </div>
-                        <div class="cc-card-body">
-                            <div class="cc-placeholder-widget">
-                                <i class="bi bi-graph-up-arrow"></i>
-                                <h6 class="fw-bold text-dark">System Analytics Engine</h6>
-                                <p class="small mb-0">Platform-wide registration trends, course demand curves, and completion ratios will be visualized here.</p>
+                            <div id="courseApprovalsContainer">
+                                <!-- Populated dynamically -->
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Right Column (User Approvals & System Announcements) -->
-                <div class="col-lg-4">
-                    <!-- Platform Activity Stream -->
-                    <div class="cc-card mb-4 shadow-sm">
-                        <div class="cc-card-header">
-                            <h6 class="fw-bold mb-0 text-dark">
-                                <i class="bi bi-activity me-2 text-primary"></i>Platform Activity Stream
-                            </h6>
+                <!-- USER MANAGEMENT SECTION -->
+                <div class="admin-panel-section d-none" id="section-users">
+                    <div class="cc-card shadow-sm">
+                        <div class="cc-card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                            <h5 class="fw-bold mb-0 text-dark">
+                                <i class="bi bi-people-fill text-success me-2"></i>User Management
+                            </h5>
+                            <div class="d-flex gap-2 align-items-center w-100" style="max-width: 400px;">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="userSearchInput" placeholder="Search by username or email...">
+                                </div>
+                            </div>
                         </div>
-                        <div class="cc-card-body">
-                            <p class="text-muted small mb-0 text-center py-3">No recent platform events recorded.</p>
+                        <div class="cc-card-body p-0">
+                            <!-- Role Filter Tabs -->
+                            <div class="bg-light border-bottom px-3 py-2 d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary user-filter-tab active" data-role="" onclick="AdminDashboard.filterUsers('')">All Users</button>
+                                <button class="btn btn-sm btn-outline-danger user-filter-tab" data-role="ADMIN" onclick="AdminDashboard.filterUsers('ADMIN')">Admins</button>
+                                <button class="btn btn-sm btn-outline-warning user-filter-tab" data-role="TRAINER" onclick="AdminDashboard.filterUsers('TRAINER')">Trainers</button>
+                                <button class="btn btn-sm btn-outline-info user-filter-tab" data-role="TRAINEE" onclick="AdminDashboard.filterUsers('TRAINEE')">Trainees</button>
+                            </div>
+                            <div id="userRosterContainer">
+                                <!-- Populated dynamically -->
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Announcements & Broadcast Controller (Placeholder) -->
+                <!-- CERTIFICATE MANAGEMENT SECTION -->
+                <div class="admin-panel-section d-none" id="section-certificates">
+                    <div class="cc-card shadow-sm">
+                        <div class="cc-card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                            <h5 class="fw-bold mb-0 text-dark">
+                                <i class="bi bi-award-fill text-warning me-2"></i>Certificate Governance
+                            </h5>
+                            <div class="d-flex gap-2 align-items-center w-100" style="max-width: 400px;">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="certificateSearchInput" placeholder="Search by code or user...">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="cc-card-body p-0">
+                            <div id="certificateManagementContainer">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ENROLLMENTS OVERVIEW SECTION -->
+                <div class="admin-panel-section d-none" id="section-enrollments">
                     <div class="cc-card shadow-sm">
                         <div class="cc-card-header">
-                            <h6 class="fw-bold mb-0 text-dark">
-                                <i class="bi bi-megaphone-fill me-2 text-danger"></i>System Broadcasts
-                            </h6>
-                            <span class="badge bg-danger-subtle text-danger">Broadcast</span>
+                            <h5 class="fw-bold mb-0 text-dark">
+                                <i class="bi bi-card-checklist text-info me-2"></i>Platform Enrollments
+                            </h5>
                         </div>
-                        <div class="cc-card-body">
-                            <div class="cc-placeholder-widget p-3">
-                                <i class="bi bi-broadcast fs-3"></i>
-                                <h6 class="fw-semibold text-dark small mb-1">Global Broadcast Engine</h6>
-                                <p class="text-muted small mb-0">Publish platform announcements, maintenance notices, and emergency alerts to all users.</p>
+                        <div class="cc-card-body p-0">
+                            <!-- Filter Tabs -->
+                            <div class="bg-light border-bottom px-3 py-2 d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary enrollment-filter-tab active" data-status="" onclick="AdminDashboard.filterEnrollments('')">All</button>
+                                <button class="btn btn-sm btn-outline-primary enrollment-filter-tab" data-status="ENROLLED" onclick="AdminDashboard.filterEnrollments('ENROLLED')">In Progress</button>
+                                <button class="btn btn-sm btn-outline-success enrollment-filter-tab" data-status="COMPLETED" onclick="AdminDashboard.filterEnrollments('COMPLETED')">Completed</button>
+                                <button class="btn btn-sm btn-outline-secondary enrollment-filter-tab" data-status="DROPPED" onclick="AdminDashboard.filterEnrollments('DROPPED')">Dropped</button>
+                            </div>
+                            <div id="enrollmentOverviewContainer">
+                                <!-- Populated dynamically -->
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
         </main>
 
         <!-- Footer -->
         <footer class="bg-white border-top py-3 px-4 text-center text-muted small mt-auto">
             &copy; 2026 Capacity Connect. Empowering skill-building and capacity management.
         </footer>
+    </div>
+
+    <!-- User Detail Modal -->
+    <div class="modal fade" id="userDetailModal" tabindex="-1" aria-labelledby="userDetailModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold text-dark" id="userDetailModalTitle">User Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0" id="userDetailContainer">
+                    <!-- Populated dynamically -->
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Supabase JS CDN -->
@@ -337,11 +414,13 @@
     <script src="../js/app.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/dashboard.js"></script>
+    <script src="../js/admin-dashboard.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // Guard page: require ADMIN role
             Dashboard.init('ADMIN');
+            AdminDashboard.init();
         });
     </script>
 </body>

@@ -154,3 +154,16 @@ class EnrollmentCreateSerializer(serializers.Serializer):
             )
 
         return enrollment
+
+
+class AdminEnrollmentListSerializer(serializers.Serializer):
+    """Admin enrollment overview serializer."""
+    id = serializers.IntegerField(read_only=True)
+    trainee_username = serializers.CharField(source='trainee.username', read_only=True)
+    trainee_email = serializers.EmailField(source='trainee.email', read_only=True)
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    course_id = serializers.IntegerField(source='course.id', read_only=True)
+    status = serializers.CharField(read_only=True)
+    progress_percentage = serializers.FloatField(read_only=True)
+    enrolled_at = serializers.DateTimeField(read_only=True)
+    completed_at = serializers.DateTimeField(read_only=True, allow_null=True)

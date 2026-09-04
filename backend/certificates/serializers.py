@@ -139,3 +139,27 @@ class CertificateTrainerRosterSerializer(serializers.ModelSerializer):
             'revoked_at',
             'revocation_reason',
         ]
+
+
+class AdminCertificateListSerializer(serializers.ModelSerializer):
+    """Admin platform-wide certificate list serializer."""
+    trainee_username = serializers.CharField(source='trainee.username', read_only=True)
+    trainee_email = serializers.EmailField(source='trainee.email', read_only=True)
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    course_id = serializers.IntegerField(source='course.id', read_only=True)
+
+    class Meta:
+        model = Certificate
+        fields = [
+            'id',
+            'certificate_code',
+            'trainee_username',
+            'trainee_email',
+            'course_title',
+            'course_id',
+            'final_grade_percentage',
+            'issued_at',
+            'is_revoked',
+            'revoked_at',
+            'revocation_reason',
+        ]

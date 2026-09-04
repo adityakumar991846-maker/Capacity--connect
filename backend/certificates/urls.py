@@ -18,4 +18,7 @@ urlpatterns = [
     path('trainer/courses/<int:course_id>/', views.TrainerCourseCertificatesView.as_view(), name='trainer-course-certificates'),
     path('<int:pk>/revoke/', views.AdminRevokeCertificateView.as_view(), name='admin-revoke-certificate'),
     path('<int:pk>/reinstate/', views.AdminReinstateCertificateView.as_view(), name='admin-reinstate-certificate'),
+    
+    # Admin certificate management
+    path('admin/all/', views.AdminCertificateListView.as_view(), name='admin-certificate-list'),
 ]

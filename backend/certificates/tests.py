@@ -411,3 +411,34 @@ class CertificateEngineTests(TestCase):
         url = reverse('trainer-course-certificates', kwargs={'course_id': self.course_2.id})
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    # --- 8. Admin Platform-wide Certificate Oversight (Step 11) ---
+
+    def test_admin_can_list_all_certificates(self):
+        """Admin can list all platform certificates across all courses/trainees."""
+        enrollment = self._complete_subjects_for_course_1(self.trainee_1)
+        check_and_issue_certificate(enrollment)
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/certificates/admin/all/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 1)
+
+    def test_admin_can_search_certificates(self):
+        """Admin can search certificates by code or trainee username."""
+        enrollment = self._complete_subjects_for_course_1(self.trainee_1)
+        cert, _, _ = check_and_issue_certificate(enrollment)
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(f'/api/certificates/admin/all/?search={cert.certificate_code}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['certificate_code'], cert.certificate_code)
+
+    def test_non_admin_cannot_list_all_certificates(self):
+        """Trainee or Trainer receives 403 on admin all certificates endpoint."""
+        self.client.force_authenticate(user=self.trainee_1)
+        response = self.client.get('/api/certificates/admin/all/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+

@@ -21,6 +21,7 @@ from .serializers import (
     CertificatePublicVerifySerializer,
     CertificateRevokeSerializer,
     CertificateTrainerRosterSerializer,
+    AdminCertificateListSerializer,
 )
 
 
@@ -223,3 +224,25 @@ class AdminReinstateCertificateView(APIView):
         cert = get_object_or_404(Certificate, pk=pk)
         cert.reinstate()
         return Response(CertificateDetailSerializer(cert).data)
+
+
+class AdminCertificateListView(APIView):
+    """
+    GET /api/certificates/admin/all/ — All platform certificates (Admin only) with optional search.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        certs = Certificate.objects.select_related('trainee', 'course').all().order_by('-issued_at')
+
+        search = request.query_params.get('search')
+        if search:
+            certs = certs.filter(
+                Q(certificate_code__icontains=search)
+                | Q(trainee__username__icontains=search)
+                | Q(trainee__email__icontains=search)
+                | Q(course__title__icontains=search)
+            )
+
+        serializer = AdminCertificateListSerializer(certs, many=True)
+        return Response(serializer.data)

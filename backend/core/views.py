@@ -6,12 +6,16 @@ Aligned with Supabase Bearer token architecture without creating competing API s
 """
 
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
+from .models import Role
+from .permissions import IsAdmin
+from .serializers import LoginSerializer, RegisterSerializer, UserSerializer, AdminUserListSerializer, AdminUserDetailSerializer
 
 
 class RegisterView(APIView):
@@ -82,4 +86,96 @@ class CurrentUserView(APIView):
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+
+class AdminUserListView(APIView):
+    """
+    GET /api/auth/admin/users/ — List all platform users with optional role and search filters.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        users = User.objects.select_related('profile').all().order_by('-date_joined')
+
+        # Filter by role
+        role_filter = request.query_params.get('role')
+        if role_filter:
+            users = users.filter(profile__role=role_filter.upper())
+
+        # Search by username or email
+        search = request.query_params.get('search')
+        if search:
+            users = users.filter(
+                Q(username__icontains=search) | Q(email__icontains=search)
+            )
+
+        serializer = AdminUserListSerializer(users, many=True)
+        return Response(serializer.data)
+
+
+class AdminUserDetailView(APIView):
+    """
+    GET /api/auth/admin/users/<pk>/ — Detailed user view with activity counts.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        user = get_object_or_404(User, pk=pk)
+        serializer = AdminUserDetailSerializer(user)
+        return Response(serializer.data)
+
+
+class AdminUserDeactivateView(APIView):
+    """
+    POST /api/auth/admin/users/<pk>/deactivate/ — Deactivate a user account.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        user = get_object_or_404(User, pk=pk)
+
+        if user.pk == request.user.pk:
+            return Response(
+                {'detail': 'Cannot deactivate your own account.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if hasattr(user, 'profile') and user.profile.role == Role.ADMIN:
+            return Response(
+                {'detail': 'Cannot deactivate admin accounts.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.is_active:
+            return Response(
+                {'detail': 'User is already inactive.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        return Response({'detail': f'User "{user.username}" has been deactivated.'})
+
+
+class AdminUserActivateView(APIView):
+    """
+    POST /api/auth/admin/users/<pk>/activate/ — Reactivate a user account.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        user = get_object_or_404(User, pk=pk)
+
+        if user.is_active:
+            return Response(
+                {'detail': 'User is already active.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.is_active = True
+        user.save(update_fields=['is_active'])
+        return Response({'detail': f'User "{user.username}" has been reactivated.'})
 
