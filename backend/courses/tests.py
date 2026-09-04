@@ -312,6 +312,15 @@ class SubjectTests(CourseTestBase):
             category='Backend',
             level=CourseLevel.ADVANCED,
             duration_hours=50,
+            status=CourseStatus.DRAFT,
+            trainer=self.trainer1,
+        )
+        self.published_course = Course.objects.create(
+            title='Published Master Django',
+            description='Comprehensive course',
+            category='Backend',
+            level=CourseLevel.ADVANCED,
+            duration_hours=50,
             status=CourseStatus.PUBLISHED,
             trainer=self.trainer1,
         )
@@ -349,12 +358,12 @@ class SubjectTests(CourseTestBase):
 
     def test_19_subjects_returned_ordered_by_order_field(self):
         """Subjects are ordered by the order field."""
-        Subject.objects.create(course=self.course, title='Module 3', order=3)
-        Subject.objects.create(course=self.course, title='Module 1', order=1)
-        Subject.objects.create(course=self.course, title='Module 2', order=2)
+        Subject.objects.create(course=self.published_course, title='Module 3', order=3)
+        Subject.objects.create(course=self.published_course, title='Module 1', order=1)
+        Subject.objects.create(course=self.published_course, title='Module 2', order=2)
 
         self.client.force_authenticate(user=self.trainee)
-        url = reverse('subject-list-create', kwargs={'course_id': self.course.pk})
+        url = reverse('subject-list-create', kwargs={'course_id': self.published_course.pk})
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -363,15 +372,15 @@ class SubjectTests(CourseTestBase):
 
     def test_20_trainee_can_view_subjects_of_published_course(self):
         """Trainee can view subjects of a published course."""
-        Subject.objects.create(course=self.course, title='Module 1', order=1)
+        Subject.objects.create(course=self.published_course, title='Module 1', order=1)
         self.client.force_authenticate(user=self.trainee)
-        url = reverse('subject-list-create', kwargs={'course_id': self.course.pk})
+        url = reverse('subject-list-create', kwargs={'course_id': self.published_course.pk})
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
 
     def test_21_subject_update_and_delete_by_owner(self):
-        """Trainer can update and delete subject on own course."""
+        """Trainer can update and delete subject on own draft course."""
         subject = Subject.objects.create(course=self.course, title='Old Title', order=1)
         self.client.force_authenticate(user=self.trainer1)
 
@@ -382,7 +391,37 @@ class SubjectTests(CourseTestBase):
         self.assertEqual(patch_res.status_code, status.HTTP_200_OK)
         self.assertEqual(patch_res.data['title'], 'New Title')
 
-        # Delete
+        # Direct Delete
+        del_res = self.client.delete(url)
+        self.assertEqual(del_res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Subject.objects.filter(pk=subject.pk).exists())
+
+    def test_21b_subject_delete_by_other_trainer_fails(self):
+        """Trainer 2 cannot direct-delete a subject belonging to Trainer 1's course (403)."""
+        subject = Subject.objects.create(course=self.course, title='T1 Subject', order=1)
+        self.client.force_authenticate(user=self.trainer2)
+
+        url = reverse('subject-detail', kwargs={'course_id': self.course.pk, 'pk': subject.pk})
+        del_res = self.client.delete(url)
+        self.assertEqual(del_res.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Subject.objects.filter(pk=subject.pk).exists())
+
+    def test_21c_subject_delete_by_trainee_fails(self):
+        """Trainee cannot direct-delete a subject from any course (403)."""
+        subject = Subject.objects.create(course=self.course, title='Protected Subject', order=1)
+        self.client.force_authenticate(user=self.trainee)
+
+        url = reverse('subject-detail', kwargs={'course_id': self.course.pk, 'pk': subject.pk})
+        del_res = self.client.delete(url)
+        self.assertEqual(del_res.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Subject.objects.filter(pk=subject.pk).exists())
+
+    def test_21d_subject_delete_by_admin_succeeds(self):
+        """Admin can direct-delete a subject from any course (204)."""
+        subject = Subject.objects.create(course=self.course, title='Admin Deletable Subject', order=1)
+        self.client.force_authenticate(user=self.admin_user)
+
+        url = reverse('subject-detail', kwargs={'course_id': self.course.pk, 'pk': subject.pk})
         del_res = self.client.delete(url)
         self.assertEqual(del_res.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Subject.objects.filter(pk=subject.pk).exists())
@@ -406,8 +445,7 @@ class PermissionEdgeCaseTests(CourseTestBase):
             'status': CourseStatus.PUBLISHED,
         }
         response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('status', response.data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         # Create valid DRAFT course
         data['status'] = CourseStatus.DRAFT
@@ -418,14 +456,96 @@ class PermissionEdgeCaseTests(CourseTestBase):
         # Attempt update to PUBLISHED
         detail_url = reverse('course-detail', kwargs={'pk': course_id})
         update_res = self.client.patch(detail_url, {'status': CourseStatus.PUBLISHED}, format='json')
-        self.assertEqual(update_res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('status', update_res.data)
+        self.assertEqual(update_res.status_code, status.HTTP_403_FORBIDDEN)
 
         # Admin CAN publish the course
         self.client.force_authenticate(user=self.admin_user)
         admin_res = self.client.patch(detail_url, {'status': CourseStatus.PUBLISHED}, format='json')
         self.assertEqual(admin_res.status_code, status.HTTP_200_OK)
         self.assertEqual(admin_res.data['status'], CourseStatus.PUBLISHED)
+
+    def test_22b_trainer_cannot_modify_published_course(self):
+        """Trainer cannot modify an already PUBLISHED course (403 Forbidden)."""
+        published_course = Course.objects.create(
+            title='Already Published Course',
+            description='Live course',
+            category='Tech',
+            level=CourseLevel.BEGINNER,
+            duration_hours=10,
+            status=CourseStatus.PUBLISHED,
+            trainer=self.trainer1,
+        )
+        self.client.force_authenticate(user=self.trainer1)
+        detail_url = reverse('course-detail', kwargs={'pk': published_course.pk})
+
+        # Trainer PATCH attempt on published course fails with 403
+        patch_res = self.client.patch(detail_url, {'title': 'Modified Title'}, format='json')
+        self.assertEqual(patch_res.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Trainer PUT attempt on published course fails with 403
+        put_res = self.client.put(detail_url, {
+            'title': 'New Title',
+            'description': 'New Desc',
+            'category': 'Tech',
+            'level': CourseLevel.INTERMEDIATE,
+            'duration_hours': 15,
+            'status': CourseStatus.DRAFT,
+        }, format='json')
+        self.assertEqual(put_res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_22c_trainer_cannot_modify_subjects_on_published_course(self):
+        """Trainer cannot add, update, or delete subjects on an already PUBLISHED course (403)."""
+        published_course = Course.objects.create(
+            title='Locked Published Course',
+            description='Live course',
+            category='Tech',
+            level=CourseLevel.BEGINNER,
+            duration_hours=10,
+            status=CourseStatus.PUBLISHED,
+            trainer=self.trainer1,
+        )
+        subject = Subject.objects.create(course=published_course, title='Live Module', order=1)
+
+        self.client.force_authenticate(user=self.trainer1)
+
+        # Add subject fails with 403
+        list_url = reverse('subject-list-create', kwargs={'course_id': published_course.pk})
+        post_res = self.client.post(list_url, {'title': 'New Subject', 'order': 2}, format='json')
+        self.assertEqual(post_res.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Update subject fails with 403
+        detail_url = reverse('subject-detail', kwargs={'course_id': published_course.pk, 'pk': subject.pk})
+        patch_res = self.client.patch(detail_url, {'title': 'Changed Title'}, format='json')
+        self.assertEqual(patch_res.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Delete subject fails with 403
+        del_res = self.client.delete(detail_url)
+        self.assertEqual(del_res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_22d_admin_can_modify_published_course_and_subjects(self):
+        """Admin can modify a published course and its subjects."""
+        published_course = Course.objects.create(
+            title='Admin Editable Published Course',
+            description='Live course',
+            category='Tech',
+            level=CourseLevel.BEGINNER,
+            duration_hours=10,
+            status=CourseStatus.PUBLISHED,
+            trainer=self.trainer1,
+        )
+        subject = Subject.objects.create(course=published_course, title='Live Module', order=1)
+
+        self.client.force_authenticate(user=self.admin_user)
+
+        # Admin updates published course -> 200 OK
+        detail_url = reverse('course-detail', kwargs={'pk': published_course.pk})
+        patch_res = self.client.patch(detail_url, {'title': 'Admin Updated Live Course'}, format='json')
+        self.assertEqual(patch_res.status_code, status.HTTP_200_OK)
+
+        # Admin updates subject on published course -> 200 OK
+        subj_detail_url = reverse('subject-detail', kwargs={'course_id': published_course.pk, 'pk': subject.pk})
+        subj_patch_res = self.client.patch(subj_detail_url, {'title': 'Admin Updated Module'}, format='json')
+        self.assertEqual(subj_patch_res.status_code, status.HTTP_200_OK)
 
     def test_23_admin_assigns_non_trainer_user_fails(self):
         """Admin assigning a Trainee as trainer fails validation."""
@@ -485,3 +605,159 @@ class PermissionEdgeCaseTests(CourseTestBase):
         self.assertFalse(Course.objects.filter(pk=course.pk).exists())
         self.assertFalse(Subject.objects.filter(pk=s1.pk).exists())
         self.assertFalse(Subject.objects.filter(pk=s2.pk).exists())
+
+
+class TrainerStudioTests(CourseTestBase):
+    """Tests for Trainer Studio endpoints: dashboard-stats, my-courses, and roster."""
+
+    def setUp(self):
+        super().setUp()
+
+        # Create courses for trainer1
+        self.course_draft = Course.objects.create(
+            title='Trainer1 Draft Course',
+            description='Draft description',
+            category='Engineering',
+            level=CourseLevel.BEGINNER,
+            duration_hours=8,
+            status=CourseStatus.DRAFT,
+            trainer=self.trainer1,
+        )
+        self.s1 = Subject.objects.create(course=self.course_draft, title='Draft Module 1', order=1)
+
+        self.course_published = Course.objects.create(
+            title='Trainer1 Published Course',
+            description='Published description',
+            category='Engineering',
+            level=CourseLevel.INTERMEDIATE,
+            duration_hours=12,
+            status=CourseStatus.PUBLISHED,
+            trainer=self.trainer1,
+        )
+        self.s2 = Subject.objects.create(course=self.course_published, title='Pub Module 1', order=1)
+        self.s3 = Subject.objects.create(course=self.course_published, title='Pub Module 2', order=2)
+
+        # Create course for trainer2
+        self.course_t2 = Course.objects.create(
+            title='Trainer2 Course',
+            description='T2 description',
+            category='Design',
+            level=CourseLevel.ADVANCED,
+            duration_hours=15,
+            status=CourseStatus.PUBLISHED,
+            trainer=self.trainer2,
+        )
+
+        # Create enrollment for trainee in trainer1 published course
+        from enrollments.models import Enrollment, EnrollmentStatus, SubjectProgress
+        self.enrollment = Enrollment.objects.create(
+            trainee=self.trainee,
+            course=self.course_published,
+            status=EnrollmentStatus.ENROLLED,
+        )
+        sp = SubjectProgress.objects.create(
+            enrollment=self.enrollment,
+            subject=self.s2,
+            completed=True,
+        )
+        SubjectProgress.objects.create(
+            enrollment=self.enrollment,
+            subject=self.s3,
+            completed=False,
+        )
+
+    def test_26_trainer_can_get_dashboard_stats(self):
+        """Trainer receives correct aggregate stats for their own courses."""
+        self.client.force_authenticate(user=self.trainer1)
+        url = reverse('trainer-dashboard-stats')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total_courses'], 2)
+        self.assertEqual(response.data['published_courses'], 1)
+        self.assertEqual(response.data['draft_courses'], 1)
+        self.assertEqual(response.data['total_enrollments'], 1)
+        self.assertEqual(response.data['average_progress'], 50.0)
+
+    def test_27_trainee_cannot_get_trainer_dashboard_stats(self):
+        """Trainee is denied access to trainer dashboard stats."""
+        self.client.force_authenticate(user=self.trainee)
+        url = reverse('trainer-dashboard-stats')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_28_unauthenticated_cannot_get_trainer_dashboard_stats(self):
+        """Unauthenticated request is rejected."""
+        url = reverse('trainer-dashboard-stats')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_29_trainer_can_get_my_courses_with_counts(self):
+        """Trainer receives list of authored courses with subject and enrollment counts."""
+        self.client.force_authenticate(user=self.trainer1)
+        url = reverse('trainer-my-courses')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+        # Check published course metrics
+        pub_item = next(c for c in response.data if c['id'] == self.course_published.id)
+        self.assertEqual(pub_item['subject_count'], 2)
+        self.assertEqual(pub_item['enrollment_count'], 1)
+        self.assertEqual(pub_item['average_progress'], 50.0)
+
+    def test_30_trainer_my_courses_does_not_include_other_trainers_courses(self):
+        """Trainer1 does not see Trainer2's courses in my-courses."""
+        self.client.force_authenticate(user=self.trainer1)
+        url = reverse('trainer-my-courses')
+        response = self.client.get(url)
+
+        course_ids = [c['id'] for c in response.data]
+        self.assertNotIn(self.course_t2.id, course_ids)
+
+    def test_31_trainer_can_get_course_roster(self):
+        """Trainer can view roster for their own course."""
+        self.client.force_authenticate(user=self.trainer1)
+        url = reverse('trainer-course-roster', kwargs={'course_id': self.course_published.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['username'], 'trainee1')
+        self.assertEqual(response.data[0]['progress_percentage'], 50.0)
+        self.assertEqual(response.data[0]['status'], 'ENROLLED')
+
+    def test_32_trainer_cannot_view_roster_for_other_trainers_course(self):
+        """Trainer1 cannot view roster for Trainer2's course."""
+        self.client.force_authenticate(user=self.trainer1)
+        url = reverse('trainer-course-roster', kwargs={'course_id': self.course_t2.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_33_trainee_cannot_view_roster(self):
+        """Trainee cannot access course roster endpoint."""
+        self.client.force_authenticate(user=self.trainee)
+        url = reverse('trainer-course-roster', kwargs={'course_id': self.course_published.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_34_admin_can_view_trainer_stats_and_roster(self):
+        """Admin can access stats and any course's roster."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        # Admin stats
+        url_stats = reverse('trainer-dashboard-stats')
+        resp_stats = self.client.get(url_stats)
+        self.assertEqual(resp_stats.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp_stats.data['total_courses'], 3)
+
+        # Admin roster for any course
+        url_roster = reverse('trainer-course-roster', kwargs={'course_id': self.course_published.id})
+        resp_roster = self.client.get(url_roster)
+        self.assertEqual(resp_roster.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp_roster.data), 1)

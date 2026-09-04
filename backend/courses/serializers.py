@@ -7,6 +7,7 @@ including role-based field permissions (e.g. status publishing restriction).
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 
 from core.models import Role
 from .models import Course, CourseLevel, CourseStatus, Subject
@@ -154,7 +155,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
         )
 
         if value == CourseStatus.PUBLISHED and not is_admin:
-            raise serializers.ValidationError(
+            raise PermissionDenied(
                 'Only administrators can publish courses.'
             )
         return value
@@ -176,3 +177,71 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             attrs['trainer'] = user
 
         return attrs
+
+
+class TrainerDashboardStatsSerializer(serializers.Serializer):
+    """Serializer for aggregate trainer dashboard metrics."""
+    total_courses = serializers.IntegerField()
+    published_courses = serializers.IntegerField()
+    draft_courses = serializers.IntegerField()
+    archived_courses = serializers.IntegerField()
+    total_enrollments = serializers.IntegerField()
+    completed_enrollments = serializers.IntegerField()
+    average_progress = serializers.FloatField()
+
+
+class TrainerCourseItemSerializer(serializers.ModelSerializer):
+    """Serializer for courses authored by the trainer with metrics."""
+    subject_count = serializers.SerializerMethodField()
+    enrollment_count = serializers.SerializerMethodField()
+    completed_count = serializers.SerializerMethodField()
+    average_progress = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Course
+        fields = [
+            'id',
+            'title',
+            'description',
+            'category',
+            'level',
+            'status',
+            'duration_hours',
+            'requirements',
+            'learning_objectives',
+            'subject_count',
+            'enrollment_count',
+            'completed_count',
+            'average_progress',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_subject_count(self, obj):
+        return obj.subjects.count()
+
+    def get_enrollment_count(self, obj):
+        return obj.enrollments.count()
+
+    def get_completed_count(self, obj):
+        return obj.enrollments.filter(status='COMPLETED').count()
+
+    def get_average_progress(self, obj):
+        enrollments = list(obj.enrollments.all())
+        if not enrollments:
+            return 0.0
+        total = sum(e.progress_percentage for e in enrollments)
+        return round(total / len(enrollments), 2)
+
+
+class TrainerCourseRosterItemSerializer(serializers.Serializer):
+    """Serializer for enrolled trainee item in a trainer course roster."""
+    enrollment_id = serializers.IntegerField()
+    trainee_id = serializers.IntegerField()
+    username = serializers.CharField()
+    email = serializers.EmailField()
+    status = serializers.CharField()
+    progress_percentage = serializers.FloatField()
+    enrolled_at = serializers.DateTimeField()
+    completed_at = serializers.DateTimeField(allow_null=True)
+    last_accessed_at = serializers.DateTimeField()

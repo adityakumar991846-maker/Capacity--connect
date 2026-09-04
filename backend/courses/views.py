@@ -21,6 +21,9 @@ from .serializers import (
     CourseDetailSerializer,
     CourseListSerializer,
     SubjectSerializer,
+    TrainerCourseItemSerializer,
+    TrainerCourseRosterItemSerializer,
+    TrainerDashboardStatsSerializer,
 )
 
 
@@ -49,6 +52,8 @@ def _check_course_write_permission(user, course):
     if role == Role.ADMIN:
         return True
     if role == Role.TRAINER and course.trainer == user:
+        if course.status == CourseStatus.PUBLISHED:
+            raise PermissionDenied('Trainers cannot modify published courses.')
         return True
     raise PermissionDenied('You do not have permission to modify this course.')
 
@@ -249,3 +254,103 @@ class SubjectDetailView(APIView):
         _, subject = self.get_course_and_subject(course_id, pk)
         subject.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TrainerDashboardStatsView(APIView):
+    """
+    GET /api/courses/trainer/dashboard-stats/
+    Returns aggregate statistics for courses authored by the authenticated trainer.
+    """
+    permission_classes = [IsAuthenticated, IsTrainerOrAdmin]
+
+    def get(self, request):
+        user = request.user
+        role = _get_user_role(user)
+
+        if role == Role.ADMIN:
+            courses_qs = Course.objects.all()
+            from enrollments.models import Enrollment, EnrollmentStatus
+            enrollments_qs = Enrollment.objects.all()
+        else:
+            courses_qs = Course.objects.filter(trainer=user)
+            from enrollments.models import Enrollment, EnrollmentStatus
+            enrollments_qs = Enrollment.objects.filter(course__trainer=user)
+
+        total_courses = courses_qs.count()
+        published_courses = courses_qs.filter(status=CourseStatus.PUBLISHED).count()
+        draft_courses = courses_qs.filter(status=CourseStatus.DRAFT).count()
+        archived_courses = courses_qs.filter(status=CourseStatus.ARCHIVED).count()
+
+        total_enrollments = enrollments_qs.count()
+        completed_enrollments = enrollments_qs.filter(status=EnrollmentStatus.COMPLETED).count()
+
+        enrollment_list = list(enrollments_qs)
+        if enrollment_list:
+            avg_prog = round(sum(e.progress_percentage for e in enrollment_list) / len(enrollment_list), 2)
+        else:
+            avg_prog = 0.0
+
+        data = {
+            'total_courses': total_courses,
+            'published_courses': published_courses,
+            'draft_courses': draft_courses,
+            'archived_courses': archived_courses,
+            'total_enrollments': total_enrollments,
+            'completed_enrollments': completed_enrollments,
+            'average_progress': avg_prog,
+        }
+        serializer = TrainerDashboardStatsSerializer(data)
+        return Response(serializer.data)
+
+
+class TrainerMyCoursesView(APIView):
+    """
+    GET /api/courses/trainer/my-courses/
+    Returns all courses authored by the authenticated trainer with embedded metrics.
+    """
+    permission_classes = [IsAuthenticated, IsTrainerOrAdmin]
+
+    def get(self, request):
+        user = request.user
+        role = _get_user_role(user)
+
+        if role == Role.ADMIN:
+            courses = Course.objects.all().prefetch_related('subjects', 'enrollments')
+        else:
+            courses = Course.objects.filter(trainer=user).prefetch_related('subjects', 'enrollments')
+
+        serializer = TrainerCourseItemSerializer(courses, many=True)
+        return Response(serializer.data)
+
+
+class TrainerCourseRosterView(APIView):
+    """
+    GET /api/courses/trainer/courses/<course_id>/roster/
+    Returns the student roster and progress for a course owned by the trainer.
+    """
+    permission_classes = [IsAuthenticated, IsTrainerOrAdmin]
+
+    def get(self, request, course_id):
+        course = get_object_or_404(Course, pk=course_id)
+        role = _get_user_role(request.user)
+        if role != Role.ADMIN and (role != Role.TRAINER or course.trainer != request.user):
+            raise PermissionDenied('You do not have permission to view this roster.')
+
+        enrollments = course.enrollments.select_related('trainee').all()
+        roster_data = [
+            {
+                'enrollment_id': e.id,
+                'trainee_id': e.trainee.id,
+                'username': e.trainee.username,
+                'email': e.trainee.email,
+                'status': e.status,
+                'progress_percentage': e.progress_percentage,
+                'enrolled_at': e.enrolled_at,
+                'completed_at': e.completed_at,
+                'last_accessed_at': e.last_accessed_at,
+            }
+            for e in enrollments
+        ]
+
+        serializer = TrainerCourseRosterItemSerializer(roster_data, many=True)
+        return Response(serializer.data)
