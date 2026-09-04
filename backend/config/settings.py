@@ -177,12 +177,25 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# WhiteNoise static file storage:
-# In production, use CompressedManifestStaticFilesStorage for caching and compression.
-# In development (DEBUG=True), standard StaticFilesStorage avoids caching/hash overhead.
+# Storage Backends:
+# - Static: WhiteNoise CompressedManifestStaticFilesStorage in production; StaticFilesStorage in development.
+# - Default/Media: SupabaseStorage in production when configured; FileSystemStorage for local dev and testing.
+DEFAULT_FILE_STORAGE_BACKEND = os.getenv('DEFAULT_FILE_STORAGE_BACKEND', '').lower()
+SUPABASE_STORAGE_BUCKET = os.getenv('SUPABASE_STORAGE_BUCKET', 'capacity-media')
+SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
+
+USE_SUPABASE_STORAGE = (
+    DEFAULT_FILE_STORAGE_BACKEND == 'supabase'
+    or (not DEBUG and bool(SUPABASE_SERVICE_ROLE_KEY))
+)
+
 STORAGES = {
     'default': {
-        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        'BACKEND': (
+            'core.storage.SupabaseStorage'
+            if USE_SUPABASE_STORAGE
+            else 'django.core.files.storage.FileSystemStorage'
+        ),
     },
     'staticfiles': {
         'BACKEND': (
@@ -237,7 +250,7 @@ REST_FRAMEWORK = {
 }
 
 # ---------------------------------------------------------------------------
-# Supabase Authentication Settings
+# Supabase Authentication & Storage Settings
 # ---------------------------------------------------------------------------
 
 SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://placeholder-project.supabase.co')
@@ -246,6 +259,8 @@ SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET', 'test-supabase-jwt-secret
 if not DEBUG:
     if not SUPABASE_JWT_SECRET or 'test-supabase-jwt-secret' in SUPABASE_JWT_SECRET:
         raise ValueError('CRITICAL SECURITY CONFIGURATION ERROR: A valid SUPABASE_JWT_SECRET must be configured when DEBUG is False.')
+    if USE_SUPABASE_STORAGE and not SUPABASE_SERVICE_ROLE_KEY:
+        raise ValueError('CRITICAL SECURITY CONFIGURATION ERROR: SUPABASE_SERVICE_ROLE_KEY must be configured when Supabase storage is enabled in production.')
 
 # ---------------------------------------------------------------------------
 # CORS Configuration

@@ -17,10 +17,13 @@ Includes:
 - Controlled account linking tests
 """
 
+import io
 import time
 import uuid
 from unittest.mock import MagicMock, patch
 
+import urllib.error
+from django.core.files.base import ContentFile
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from django.conf import settings
@@ -722,6 +725,333 @@ class Step18DeploymentArtifactTests(TestCase):
         from django.conf import settings
         self.assertIn('staticfiles', settings.STORAGES)
         self.assertIn('default', settings.STORAGES)
+
+
+class Step19PersistentMediaStorageTests(TestCase):
+    """
+    Automated verification of Step 19 Persistent Media Storage Strategy (SupabaseStorage).
+    """
+
+    def test_storage_backend_selection_local(self):
+        """Verify that under default local configuration, default storage is FileSystemStorage."""
+        from django.conf import settings
+        from django.core.files.storage import default_storage, FileSystemStorage
+        self.assertIsInstance(default_storage, FileSystemStorage)
+
+    def test_supabase_storage_url_generation(self):
+        """Verify SupabaseStorage correctly generates public/authenticated URLs."""
+        from core.storage import SupabaseStorage
+        storage = SupabaseStorage(
+            bucket='test-bucket',
+            supabase_url='https://xyz.supabase.co',
+            service_role_key='test-key',
+        )
+        url = storage.url('assignments/submissions/2026/09/deliverable.pdf')
+        expected = 'https://xyz.supabase.co/storage/v1/object/public/test-bucket/assignments/submissions/2026/09/deliverable.pdf'
+        self.assertEqual(url, expected)
+
+    def test_supabase_storage_headers(self):
+        """Verify SupabaseStorage formats Bearer and apikey headers correctly."""
+        from core.storage import SupabaseStorage
+        storage = SupabaseStorage(
+            bucket='test-bucket',
+            supabase_url='https://xyz.supabase.co',
+            service_role_key='secret-key-123',
+        )
+        headers = storage._get_headers(content_type='application/pdf')
+        self.assertEqual(headers['Authorization'], 'Bearer secret-key-123')
+        self.assertEqual(headers['apikey'], 'secret-key-123')
+        self.assertEqual(headers['Content-Type'], 'application/pdf')
+
+    @patch('urllib.request.urlopen')
+    def test_supabase_storage_upload_success(self, mock_urlopen):
+        """Verify SupabaseStorage _save sends POST request with correct payload and headers."""
+        from core.storage import SupabaseStorage
+        from django.core.files.base import ContentFile
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        storage = SupabaseStorage(
+            bucket='test-bucket',
+            supabase_url='https://xyz.supabase.co',
+            service_role_key='secret-key-123',
+        )
+        file_obj = ContentFile(b'Hello World deliverable', name='deliverable.txt')
+        saved_name = storage._save('deliverable.txt', file_obj)
+        self.assertEqual(saved_name, 'deliverable.txt')
+        mock_urlopen.assert_called_once()
+        req = mock_urlopen.call_args[0][0]
+        self.assertEqual(req.get_method(), 'POST')
+        self.assertIn('object/test-bucket/deliverable.txt', req.full_url)
+        self.assertEqual(req.headers['X-upsert'], 'true')
+
+    @patch('urllib.request.urlopen')
+    def test_supabase_storage_upload_failure_raises_ioerror(self, mock_urlopen):
+        """Verify SupabaseStorage does NOT silently swallow upload failures."""
+        from core.storage import SupabaseStorage
+        from django.core.files.base import ContentFile
+        import urllib.error
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            'https://xyz.supabase.co', 500, 'Internal Server Error', {}, io.BytesIO(b'{"error":"disk full"}')
+        )
+
+        storage = SupabaseStorage(
+            bucket='test-bucket',
+            supabase_url='https://xyz.supabase.co',
+            service_role_key='secret-key-123',
+        )
+        file_obj = ContentFile(b'Deliverable bytes', name='task.pdf')
+        with self.assertRaises(IOError) as ctx:
+            storage._save('task.pdf', file_obj)
+        self.assertIn('Failed to upload', str(ctx.exception))
+
+    @patch('urllib.request.urlopen')
+    def test_supabase_storage_delete_success(self, mock_urlopen):
+        """Verify SupabaseStorage delete issues DELETE with JSON payload."""
+        from core.storage import SupabaseStorage
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        storage = SupabaseStorage(
+            bucket='test-bucket',
+            supabase_url='https://xyz.supabase.co',
+            service_role_key='secret-key-123',
+        )
+        result = storage.delete('assignments/file.pdf')
+        self.assertTrue(result)
+        req = mock_urlopen.call_args[0][0]
+        self.assertEqual(req.get_method(), 'DELETE')
+        self.assertIn('object/test-bucket', req.full_url)
+
+    @patch('urllib.request.urlopen')
+    def test_supabase_storage_exists_and_size(self, mock_urlopen):
+        """Verify SupabaseStorage exists and size methods queries object metadata."""
+        from core.storage import SupabaseStorage
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.read.return_value = b'{"size": 2048, "id": "123"}'
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        storage = SupabaseStorage(
+            bucket='test-bucket',
+            supabase_url='https://xyz.supabase.co',
+            service_role_key='secret-key-123',
+        )
+        self.assertTrue(storage.exists('submission.zip'))
+        self.assertEqual(storage.size('submission.zip'), 2048)
+
+    def test_assignment_submission_file_upload_flow(self):
+        """Verify that AssignmentSubmission model cleanly saves and queries file attachments."""
+        from assignments.models import Assignment, AssignmentSubmission, SubmissionType, SubmissionStatus
+        from courses.models import Course
+        from enrollments.models import Enrollment
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        trainer = User.objects.create_user(username='sub_trainer', email='sub_trainer@test.com', password='Pass!')
+        trainee = User.objects.create_user(username='sub_trainee', email='sub_trainee@test.com', password='Pass!')
+        course = Course.objects.create(
+            trainer=trainer,
+            title='File Storage Course',
+            description='Test',
+            duration_hours=10,
+        )
+        enrollment = Enrollment.objects.create(course=course, trainee=trainee)
+        assignment = Assignment.objects.create(
+            course=course,
+            title='Upload Capstone',
+            description='Upload your report',
+            submission_type=SubmissionType.FILE,
+            max_score=100,
+        )
+
+        test_file = SimpleUploadedFile(
+            'capstone_report.pdf',
+            b'%PDF-1.4 sample file content for testing',
+            content_type='application/pdf',
+        )
+        submission = AssignmentSubmission.objects.create(
+            assignment=assignment,
+            trainee=trainee,
+            enrollment=enrollment,
+            submission_file=test_file,
+            status=SubmissionStatus.SUBMITTED,
+        )
+        self.assertIsNotNone(submission.submission_file)
+        self.assertTrue(submission.submission_file.name.endswith('.pdf'))
+        self.assertTrue(submission.submission_file.storage.exists(submission.submission_file.name))
+        # Cleanup uploaded test file
+        submission.submission_file.delete(save=False)
+class SupabaseStorageTests(TestCase):
+    """Tests for the persistent Supabase Storage backend."""
+
+    def setUp(self):
+        from django.test import override_settings
+        from core.storage import SupabaseStorage
+
+        self.override = override_settings(
+            SUPABASE_URL='https://example.supabase.co',
+            SUPABASE_STORAGE_BUCKET='capacity-media',
+            SUPABASE_SERVICE_ROLE_KEY='test-service-role-key',
+        )
+        self.override.enable()
+        self.storage = SupabaseStorage()
+
+    def tearDown(self):
+        self.override.disable()
+
+    def test_storage_configuration(self):
+        """Verify Supabase Storage uses the configured bucket and URL."""
+        self.assertEqual(self.storage.bucket, 'capacity-media')
+        self.assertEqual(
+            self.storage.supabase_url,
+            'https://example.supabase.co',
+        )
+
+    def test_object_url(self):
+        """Verify the Supabase Storage object URL is generated correctly."""
+        url = self.storage._object_url(
+            'assignments/submissions/2026/09/test.pdf'
+        )
+
+        self.assertEqual(
+            url,
+            'https://example.supabase.co/storage/v1/object/'
+            'capacity-media/assignments/submissions/2026/09/test.pdf',
+        )
+
+    def test_public_url(self):
+        """Verify the public URL is generated correctly."""
+        url = self.storage.url(
+            'assignments/submissions/2026/09/test.pdf'
+        )
+
+        self.assertEqual(
+            url,
+            'https://example.supabase.co/storage/v1/object/public/'
+            'capacity-media/assignments/submissions/2026/09/test.pdf',
+        )
+
+    def test_headers(self):
+        """Verify service-role authentication headers."""
+        headers = self.storage._headers('application/pdf')
+
+        self.assertEqual(
+            headers['Authorization'],
+            'Bearer test-service-role-key',
+        )
+        self.assertEqual(
+            headers['apikey'],
+            'test-service-role-key',
+        )
+        self.assertEqual(
+            headers['Content-Type'],
+            'application/pdf',
+        )
+
+    def test_clean_name(self):
+        """Verify Windows separators and leading slashes are normalized."""
+        name = self.storage._clean_name(
+            r'\assignments\submissions\2026\09\test.pdf'
+        )
+
+        self.assertEqual(
+            name,
+            'assignments/submissions/2026/09/test.pdf',
+        )
+
+    @patch('core.storage.urllib.request.urlopen')
+    def test_save_upload(self, mock_urlopen):
+        """Verify a file is uploaded using the Supabase Storage API."""
+        response = MagicMock()
+        response.status = 200
+        mock_urlopen.return_value.__enter__.return_value = response
+
+        content = ContentFile(b'PDF test data', name='test.pdf')
+        content.content_type = 'application/pdf'
+
+        saved_name = self.storage._save(
+            'assignments/submissions/2026/09/test.pdf',
+            content,
+        )
+
+        self.assertEqual(
+            saved_name,
+            'assignments/submissions/2026/09/test.pdf',
+        )
+
+        request = mock_urlopen.call_args.args[0]
+
+        self.assertEqual(request.method, 'POST')
+        self.assertEqual(
+            request.full_url,
+            'https://example.supabase.co/storage/v1/object/'
+            'capacity-media/assignments/submissions/2026/09/test.pdf',
+        )
+
+    @patch('core.storage.urllib.request.urlopen')
+    def test_exists_returns_true(self, mock_urlopen):
+        """Verify exists() returns True for an existing object."""
+        response = MagicMock()
+        mock_urlopen.return_value.__enter__.return_value = response
+
+        self.assertTrue(
+            self.storage.exists(
+                'assignments/submissions/2026/09/test.pdf'
+            )
+        )
+
+        request = mock_urlopen.call_args.args[0]
+        self.assertEqual(request.method, 'HEAD')
+
+    @patch('core.storage.urllib.request.urlopen')
+    def test_exists_returns_false_for_missing_file(self, mock_urlopen):
+        """Verify exists() returns False for a 404 response."""
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            url='https://example.supabase.co',
+            code=404,
+            msg='Not Found',
+            hdrs=None,
+            fp=None,
+        )
+
+        self.assertFalse(
+            self.storage.exists(
+                'assignments/submissions/2026/09/missing.pdf'
+            )
+        )
+
+    @patch('core.storage.urllib.request.urlopen')
+    def test_delete(self, mock_urlopen):
+        """Verify delete() sends the correct request."""
+        response = MagicMock()
+        response.status = 200
+        mock_urlopen.return_value.__enter__.return_value = response
+
+        self.storage.delete(
+            'assignments/submissions/2026/09/test.pdf'
+        )
+
+        request = mock_urlopen.call_args.args[0]
+
+        self.assertEqual(request.method, 'DELETE')
+
+    @patch('core.storage.urllib.request.urlopen')
+    def test_size(self, mock_urlopen):
+        """Verify size() reads Content-Length."""
+        response = MagicMock()
+        response.headers.get.return_value = '1234'
+        mock_urlopen.return_value.__enter__.return_value = response
+
+        size = self.storage.size(
+            'assignments/submissions/2026/09/test.pdf'
+        )
+
+        self.assertEqual(size, 1234)
 
 
 
