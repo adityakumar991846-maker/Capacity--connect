@@ -256,11 +256,15 @@ class TraineeClaimCertificateView(APIView):
 # PUBLIC VERIFICATION VIEW
 # =============================================================================
 
+from core.throttling import VerifyRateThrottle
+
+
 class PublicCertificateVerifyView(APIView):
     """
     GET /api/certificates/verify/<identifier>/ - Public credential verification (AllowAny)
     """
     permission_classes = [AllowAny]
+    throttle_classes = [VerifyRateThrottle]
 
     def get(self, request, identifier):
         identifier = identifier.strip()

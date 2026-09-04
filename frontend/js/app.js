@@ -11,7 +11,23 @@
 // Configuration
 // ---------------------------------------------------------------------------
 const APP_CONFIG = {
-    API_BASE_URL: window.__API_BASE_URL__ || 'http://127.0.0.1:8000/api',
+    // Dynamically resolves API base URL:
+    // 1. Explicit global override: window.__API_BASE_URL__
+    // 2. Production same-origin: if served from standard port/domain (not file://), relative '/api'
+    // 3. Local standalone development servers (Live Server / Vite / static port): 'http://127.0.0.1:8000/api'
+    get API_BASE_URL() {
+        if (window.__API_BASE_URL__) {
+            return window.__API_BASE_URL__.replace(/\/+$/, '');
+        }
+        if (typeof window !== 'undefined' && window.location && window.location.origin) {
+            const loc = window.location;
+            // If served directly from the Django backend (e.g. port 8000 or production domain)
+            if (loc.port === '8000' || (!['5500', '3000', '5173', '8080'].includes(loc.port) && loc.protocol.startsWith('http') && !loc.hostname.includes('127.0.0.1') && !loc.hostname.includes('localhost'))) {
+                return `${loc.origin}/api`;
+            }
+        }
+        return 'http://127.0.0.1:8000/api';
+    },
     APP_NAME: 'Capacity Connect',
 };
 

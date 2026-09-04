@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from .models import Role
 from .permissions import IsAdmin
 from .serializers import LoginSerializer, RegisterSerializer, UserSerializer, AdminUserListSerializer, AdminUserDetailSerializer
+from .throttling import AuthRateThrottle
 
 
 class RegisterView(APIView):
@@ -26,6 +27,7 @@ class RegisterView(APIView):
     Only TRAINEE and TRAINER roles are allowed.
     """
     permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -45,6 +47,7 @@ class LoginView(APIView):
     Does not issue or require Django session cookies.
     """
     permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)

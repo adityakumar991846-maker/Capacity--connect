@@ -29,7 +29,32 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-before-productio
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
+
+# Fail fast in production if unsafe secret keys are detected
+if not DEBUG:
+    if not SECRET_KEY or 'django-insecure' in SECRET_KEY or SECRET_KEY == 'change-me-before-production':
+        raise ValueError('CRITICAL SECURITY CONFIGURATION ERROR: A strong, secure SECRET_KEY must be configured when DEBUG is False.')
+
+# ---------------------------------------------------------------------------
+# Production Security & SSL/HTTPS Hardening
+# ---------------------------------------------------------------------------
+if not DEBUG:
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() in ('true', '1', 'yes')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+else:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
 
 # ---------------------------------------------------------------------------
 # Application definition
@@ -175,6 +200,16 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': os.getenv('DRF_THROTTLE_ANON', '100/minute'),
+        'user': os.getenv('DRF_THROTTLE_USER', '500/minute'),
+        'auth': os.getenv('DRF_THROTTLE_AUTH', '15/minute'),
+        'verify': os.getenv('DRF_THROTTLE_VERIFY', '60/minute'),
+    },
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_RENDERER_CLASSES': [
@@ -190,6 +225,10 @@ REST_FRAMEWORK = {
 SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://placeholder-project.supabase.co')
 SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET', 'test-supabase-jwt-secret-for-development-only-must-be-changed-in-prod')
 
+if not DEBUG:
+    if not SUPABASE_JWT_SECRET or 'test-supabase-jwt-secret' in SUPABASE_JWT_SECRET:
+        raise ValueError('CRITICAL SECURITY CONFIGURATION ERROR: A valid SUPABASE_JWT_SECRET must be configured when DEBUG is False.')
+
 # ---------------------------------------------------------------------------
 # CORS Configuration
 # https://github.com/adamchainz/django-cors-headers
@@ -201,25 +240,44 @@ SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET', 'test-supabase-jwt-secret
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only allow all origins when DEBUG is True
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = os.getenv(
-    'CORS_ALLOWED_ORIGINS',
-    'http://localhost:8000,http://127.0.0.1:8000,http://127.0.0.1:5500,http://localhost:5500,http://localhost:3000',
-).split(',')
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        'CORS_ALLOWED_ORIGINS',
+        'http://localhost:8000,http://127.0.0.1:8000,http://127.0.0.1:5500,http://localhost:5500,http://localhost:3000',
+    ).split(',')
+    if origin.strip()
+]
 
 CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'http://localhost:5500',
-    'http://127.0.0.1:5500',
-    'http://localhost:3000',
+    origin.strip()
+    for origin in os.getenv(
+        'CSRF_TRUSTED_ORIGINS',
+        'http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000',
+    ).split(',')
+    if origin.strip()
 ]
 
 # ---------------------------------------------------------------------------
-# Email (console backend for development)
+# Email
 # ---------------------------------------------------------------------------
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+if DEBUG:
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        },
+    }
+else:
+    MAILERS = {
+        'default': {
+            'BACKEND': os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend'),
+            'HOST': os.getenv('EMAIL_HOST', 'localhost'),
+            'PORT': int(os.getenv('EMAIL_PORT', 587)),
+            'USE_TLS': os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes'),
+            'USERNAME': os.getenv('EMAIL_HOST_USER', ''),
+            'PASSWORD': os.getenv('EMAIL_HOST_PASSWORD', ''),
+        },
+    }
+
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Capacity Connect <noreply@capacityconnect.com>')
