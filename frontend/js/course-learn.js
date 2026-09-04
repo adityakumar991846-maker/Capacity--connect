@@ -16,6 +16,8 @@ const CourseLearnController = {
     _course: null,
     _activeSubjectIndex: 0,
     _isToggling: false,
+    _assessments: [],
+    _certificate: null,
 
     /**
      * Initializes the learning room.
@@ -59,6 +61,24 @@ const CourseLearnController = {
             } catch (e) {
                 console.warn('[CourseLearn] Could not fetch assessments:', e);
                 this._assessments = [];
+            }
+
+            // Fetch certificate status if completed
+            if (this._enrollment && (this._enrollment.status === 'COMPLETED' || parseFloat(this._enrollment.progress_percentage) === 100)) {
+                try {
+                    const certs = await apiRequest('/certificates/my-certificates/');
+                    const currentCert = Array.isArray(certs) ? certs.find(c => c.course_id === courseId) : null;
+                    if (currentCert) {
+                        this._certificate = await apiRequest(`/certificates/${currentCert.id}/`);
+                    } else {
+                        this._certificate = null;
+                    }
+                } catch (e) {
+                    console.warn('[CourseLearn] Could not fetch certificate:', e);
+                    this._certificate = null;
+                }
+            } else {
+                this._certificate = null;
             }
 
             // Merge subject descriptions into subject_progresses
@@ -280,6 +300,24 @@ const CourseLearnController = {
             } else {
                 completionNotice.classList.add('d-none');
             }
+        }
+
+        // Certificate banner
+        const certNotice = document.getElementById('certificateEarnedNotice');
+        const btnCertText = document.getElementById('btnCertText');
+        const certBannerSub = document.getElementById('certBannerSubtitle');
+
+        if (this._enrollment.status === 'COMPLETED' || parseFloat(this._enrollment.progress_percentage) === 100) {
+            if (certNotice) certNotice.classList.remove('d-none');
+            if (this._certificate) {
+                if (btnCertText) btnCertText.textContent = 'View Certificate';
+                if (certBannerSub) certBannerSub.textContent = `Certificate issued with grade ${this._certificate.final_grade_percentage}%.`;
+            } else {
+                if (btnCertText) btnCertText.textContent = 'Claim Certificate';
+                if (certBannerSub) certBannerSub.textContent = 'You have completed all curriculum requirements. Claim your official credential!';
+            }
+        } else {
+            if (certNotice) certNotice.classList.add('d-none');
         }
 
         // Navigation controls
@@ -592,6 +630,76 @@ const CourseLearnController = {
                     ${reviewHtml}
                 </div>
             `;
+        }
+    },
+
+    /**
+     * Handle Claim / View Certificate Action.
+     */
+    async handleCertificateAction() {
+        if (this._certificate) {
+            this.showCertificateModal(this._certificate);
+            return;
+        }
+
+        const btn = document.getElementById('btnClaimOrViewCert');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Claiming...';
+        }
+
+        try {
+            const cert = await apiRequest(`/certificates/claim/${this._enrollmentId}/`, 'POST');
+            this._certificate = cert;
+            this.showCertificateModal(cert);
+            await this.loadLearningData();
+        } catch (err) {
+            alert(err.message || 'Unable to claim certificate. Please ensure all assessments are passed.');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="bi bi-award me-1"></i><span id="btnCertText">${this._certificate ? 'View Certificate' : 'Claim Certificate'}</span>`;
+            }
+        }
+    },
+
+    /**
+     * Populate and show the trainee certificate modal.
+     */
+    showCertificateModal(cert) {
+        if (!cert) return;
+        const nameEl = document.getElementById('modalCertTraineeName');
+        const courseEl = document.getElementById('modalCertCourseTitle');
+        const catEl = document.getElementById('modalCertCategory');
+        const gradeEl = document.getElementById('modalCertGrade');
+        const dateEl = document.getElementById('modalCertDate');
+        const instEl = document.getElementById('modalCertInstructor');
+        const codeEl = document.getElementById('modalCertCode');
+        const statusEl = document.getElementById('modalCertStatus');
+        const verifyLinkEl = document.getElementById('modalCertVerifyLink');
+
+        if (nameEl) nameEl.textContent = cert.trainee_name || cert.trainee_username || 'Trainee';
+        if (courseEl) courseEl.textContent = cert.course_title || (this._course ? this._course.title : 'Course');
+        if (catEl) catEl.textContent = cert.course_category || (this._course ? this._course.category : 'General');
+        if (gradeEl) gradeEl.textContent = `${cert.final_grade_percentage || 100.0}%`;
+        if (dateEl) {
+            const d = cert.issued_at ? new Date(cert.issued_at) : new Date();
+            dateEl.textContent = d.toLocaleDateString();
+        }
+        if (instEl) instEl.textContent = cert.trainer_name || 'Capacity Connect Instructor';
+        if (codeEl) codeEl.textContent = cert.certificate_code || '';
+        if (statusEl) {
+            statusEl.textContent = cert.is_revoked ? 'REVOKED' : 'VALID';
+            statusEl.className = cert.is_revoked ? 'badge bg-danger' : 'badge bg-success';
+        }
+        if (verifyLinkEl) {
+            verifyLinkEl.href = `verify-certificate.html?code=${encodeURIComponent(cert.certificate_code || '')}`;
+        }
+
+        const modalEl = document.getElementById('traineeCertificateModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
         }
     },
 

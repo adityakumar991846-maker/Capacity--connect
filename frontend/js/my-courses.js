@@ -210,6 +210,10 @@ const MyCoursesController = {
                         <a href="course-learn.html?enrollment_id=${enrollment.id}" class="btn btn-primary btn-sm flex-fill fw-semibold">
                             <i class="bi bi-play-circle-fill me-1"></i>${isCompleted ? 'Review Modules' : 'Continue Learning'}
                         </a>
+                        ${isCompleted ? `
+                        <a href="course-learn.html?enrollment_id=${enrollment.id}" class="btn btn-outline-success btn-sm" title="Certificate Earned">
+                            <i class="bi bi-award-fill"></i>
+                        </a>` : ''}
                         <a href="course-details.html?id=${course.id}" class="btn btn-outline-secondary btn-sm" title="View Course Details">
                             <i class="bi bi-info-circle"></i>
                         </a>

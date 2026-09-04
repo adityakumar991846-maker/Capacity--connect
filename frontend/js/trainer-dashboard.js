@@ -167,6 +167,11 @@ const TrainerStudio = {
                                         <i class="bi bi-people me-2 text-info"></i>Student Roster (${course.enrollment_count})
                                     </a>
                                 </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" onclick="TrainerStudio.openCourseCertificatesModal(${course.id}, '${this.escapeHtml(course.title)}'); return false;">
+                                        <i class="bi bi-award me-2 text-success"></i>Issued Certificates
+                                    </a>
+                                </li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
                                     <a class="dropdown-item" href="#" onclick="TrainerStudio.openEditCourseModal(${course.id}); return false;">
@@ -571,6 +576,99 @@ const TrainerStudio = {
             `;
         } catch (err) {
             console.error('[TrainerStudio] Error loading roster:', err);
+            container.innerHTML = `<div class="alert alert-danger small m-3">${this.escapeHtml(err.message)}</div>`;
+        }
+    },
+
+    /**
+     * Opens Course Certificates Roster Modal.
+     */
+    async openCourseCertificatesModal(courseId, courseTitle = '') {
+        const titleEl = document.getElementById('certificatesModalCourseTitle');
+        if (titleEl) titleEl.textContent = `Issued Certificates: ${courseTitle}`;
+
+        const container = document.getElementById('courseCertificatesContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary"></div>
+                    <p class="text-muted small mt-2 mb-0">Loading issued credentials...</p>
+                </div>
+            `;
+        }
+
+        const modalEl = document.getElementById('courseCertificatesModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+
+        try {
+            const certs = await apiRequest(`/certificates/trainer/courses/${courseId}/`);
+            const certList = Array.isArray(certs) ? certs : [];
+
+            if (certList.length === 0) {
+                container.innerHTML = `
+                    <div class="p-4 text-center bg-light rounded-3">
+                        <i class="bi bi-award fs-2 text-muted mb-2 d-block"></i>
+                        <h6 class="fw-bold text-dark">No Certificates Issued Yet</h6>
+                        <p class="text-muted small mb-0">When enrolled trainees complete all course modules and pass required assessments, their verified credentials will appear here.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const rowsHtml = certList.map(c => {
+                const isRevoked = !!c.revoked_at;
+                const statusBadge = isRevoked
+                    ? '<span class="badge bg-danger-subtle text-danger fw-semibold"><i class="bi bi-x-circle me-1"></i>Revoked</span>'
+                    : '<span class="badge bg-success-subtle text-success fw-semibold"><i class="bi bi-patch-check-fill me-1"></i>Active</span>';
+
+                const issuedDate = c.issue_date ? new Date(c.issue_date).toLocaleDateString() : '—';
+                const gradeDisplay = c.grade ? `<span class="badge bg-secondary-subtle text-secondary">${this.escapeHtml(c.grade)}</span>` : '—';
+
+                return `
+                    <tr>
+                        <td class="ps-3">
+                            <div class="fw-bold text-dark">${this.escapeHtml(c.trainee_name || 'Trainee')}</div>
+                            <div class="text-muted small">${this.escapeHtml(c.trainee_email || '')}</div>
+                        </td>
+                        <td>
+                            <code class="user-select-all fw-semibold text-primary">${this.escapeHtml(c.certificate_code)}</code>
+                        </td>
+                        <td>${issuedDate}</td>
+                        <td>${gradeDisplay}</td>
+                        <td>${statusBadge}</td>
+                        <td class="text-end pe-3">
+                            <a href="/pages/verify-certificate.html?code=${encodeURIComponent(c.certificate_code)}" target="_blank" class="btn btn-outline-primary btn-sm py-0 px-2" title="Public Verification Link">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>Verify
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light text-secondary text-uppercase" style="font-size: 0.75rem;">
+                            <tr>
+                                <th class="ps-3">Recipient</th>
+                                <th>Certificate Code</th>
+                                <th>Issued On</th>
+                                <th>Grade</th>
+                                <th>Status</th>
+                                <th class="text-end pe-3">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } catch (err) {
+            console.error('[TrainerStudio] Error loading course certificates:', err);
             container.innerHTML = `<div class="alert alert-danger small m-3">${this.escapeHtml(err.message)}</div>`;
         }
     },
