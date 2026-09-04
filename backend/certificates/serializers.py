@@ -14,6 +14,8 @@ class CertificateDetailSerializer(serializers.ModelSerializer):
     trainer_name = serializers.SerializerMethodField()
     trainee_name = serializers.SerializerMethodField()
     trainee_username = serializers.CharField(source='trainee.username', read_only=True)
+    duration_hours = serializers.IntegerField(source='course.duration_hours', read_only=True)
+    honors_tier = serializers.CharField(read_only=True)
 
     class Meta:
         model = Certificate
@@ -24,10 +26,12 @@ class CertificateDetailSerializer(serializers.ModelSerializer):
             'course_id',
             'course_title',
             'course_category',
+            'duration_hours',
             'trainer_name',
             'trainee_name',
             'trainee_username',
             'final_grade_percentage',
+            'honors_tier',
             'issued_at',
             'is_revoked',
             'revoked_at',
@@ -50,7 +54,9 @@ class CertificateListSerializer(serializers.ModelSerializer):
     course_id = serializers.IntegerField(source='course.id', read_only=True)
     course_title = serializers.CharField(source='course.title', read_only=True)
     course_category = serializers.CharField(source='course.category', read_only=True)
+    duration_hours = serializers.IntegerField(source='course.duration_hours', read_only=True)
     trainer_name = serializers.SerializerMethodField()
+    honors_tier = serializers.CharField(read_only=True)
 
     class Meta:
         model = Certificate
@@ -60,8 +66,10 @@ class CertificateListSerializer(serializers.ModelSerializer):
             'course_id',
             'course_title',
             'course_category',
+            'duration_hours',
             'trainer_name',
             'final_grade_percentage',
+            'honors_tier',
             'issued_at',
             'is_revoked',
         ]
@@ -163,3 +171,39 @@ class AdminCertificateListSerializer(serializers.ModelSerializer):
             'revoked_at',
             'revocation_reason',
         ]
+
+
+class TraineeCertificateSummarySerializer(serializers.Serializer):
+    """Aggregated portfolio statistics for a trainee."""
+    total_certificates = serializers.IntegerField()
+    cumulative_grade_average = serializers.FloatField()
+    total_certified_hours = serializers.IntegerField()
+    categories_mastered = serializers.ListField(child=serializers.CharField())
+    distinctions_count = serializers.IntegerField()
+
+
+class AcademicTranscriptItemSerializer(serializers.Serializer):
+    """Individual course record in official academic transcript."""
+    course_id = serializers.IntegerField()
+    course_title = serializers.CharField()
+    category = serializers.CharField()
+    level = serializers.CharField()
+    duration_hours = serializers.IntegerField()
+    trainer_name = serializers.CharField()
+    completion_date = serializers.DateTimeField()
+    final_grade = serializers.FloatField()
+    honors_tier = serializers.CharField()
+    certificate_code = serializers.CharField()
+    is_valid = serializers.BooleanField()
+
+
+class AcademicTranscriptSerializer(serializers.Serializer):
+    """Full official student academic transcript document."""
+    student_id = serializers.IntegerField()
+    student_name = serializers.CharField()
+    student_email = serializers.EmailField()
+    generated_at = serializers.DateTimeField()
+    total_courses_completed = serializers.IntegerField()
+    cumulative_grade_average = serializers.FloatField()
+    total_hours_completed = serializers.IntegerField()
+    records = AcademicTranscriptItemSerializer(many=True)

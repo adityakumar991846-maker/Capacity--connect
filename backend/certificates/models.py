@@ -84,6 +84,21 @@ class Certificate(models.Model):
     def status(self):
         return CertificateStatus.REVOKED if self.is_revoked else CertificateStatus.ACTIVE
 
+    @property
+    def honors_tier(self):
+        """
+        Computed honors classification based on final grade percentage:
+        - DISTINCTION: >= 90.0%
+        - MERIT: >= 80.0% and < 90.0%
+        - PASS: < 80.0%
+        """
+        grade = self.final_grade_percentage or 0.0
+        if grade >= 90.0:
+            return 'DISTINCTION'
+        elif grade >= 80.0:
+            return 'MERIT'
+        return 'PASS'
+
     def revoke(self, admin_user=None, reason='', revoked_by_user=None):
         """Revoke this certificate."""
         user = admin_user or revoked_by_user

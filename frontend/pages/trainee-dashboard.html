@@ -70,10 +70,9 @@
                 <i class="bi bi-graph-up-arrow"></i>
                 <span>Progress</span>
             </a>
-            <a href="#" class="cc-nav-link text-muted opacity-75">
+            <a href="my-certificates.html" class="cc-nav-link">
                 <i class="bi bi-award-fill"></i>
                 <span>Certificates</span>
-                <span class="badge bg-primary-subtle text-primary">Soon</span>
             </a>
 
             <div class="cc-nav-section-title mt-3">Account &amp; Support</div>
@@ -202,16 +201,18 @@
                     </div>
                 </div>
                 <div class="col-sm-6 col-xl-3">
-                    <div class="cc-stat-card shadow-sm">
-                        <div>
-                            <div class="cc-stat-label">Certificates</div>
-                            <div class="cc-stat-value">—</div>
-                            <div class="cc-stat-subtext">Module coming soon</div>
+                    <a href="my-certificates.html" class="text-decoration-none">
+                        <div class="cc-stat-card shadow-sm">
+                            <div>
+                                <div class="cc-stat-label">Certificates</div>
+                                <div class="cc-stat-value" id="traineeStatCertificates">0</div>
+                                <div class="cc-stat-subtext">Verified credentials earned</div>
+                            </div>
+                            <div class="cc-stat-icon info">
+                                <i class="bi bi-award"></i>
+                            </div>
                         </div>
-                        <div class="cc-stat-icon info">
-                            <i class="bi bi-award"></i>
-                        </div>
-                    </div>
+                    </a>
                 </div>
             </section>
 
@@ -371,6 +372,15 @@
                 if (elProgress) elProgress.textContent = `${stats.averageProgress}%`;
                 if (elCompleted) elCompleted.textContent = stats.completedCount;
                 if (elSidebarCount) elSidebarCount.textContent = stats.totalEnrolled;
+
+                // Load certificate count
+                try {
+                    const certSummary = await apiRequest('/certificates/my-summary/');
+                    const elCert = document.getElementById('traineeStatCertificates');
+                    if (elCert && certSummary) elCert.textContent = certSummary.total_certificates || 0;
+                } catch (e) {
+                    console.debug('[TraineeDashboard] Could not load cert summary:', e.message);
+                }
 
                 // 2. Render Continue Learning section
                 const continueCourse = TraineeLearning.getContinueLearningCourse(validEnrollments);

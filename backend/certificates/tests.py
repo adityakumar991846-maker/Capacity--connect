@@ -441,4 +441,92 @@ class CertificateEngineTests(TestCase):
         response = self.client.get('/api/certificates/admin/all/')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    # --- 9. Step 15 Trainee Credential Portfolio, Transcripts & Achievements ---
+
+    def test_step15_my_certificates_empty_state(self):
+        """Trainee with no certificates gets an empty list."""
+        self.client.force_authenticate(user=self.trainee_2)
+        response = self.client.get(reverse('trainee-my-certificates'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+    def test_step15_my_certificates_payload_includes_honors_and_duration(self):
+        """Trainee certificate list item includes duration_hours, honors_tier, and trainer_name."""
+        enrollment = self._complete_subjects_for_course_1(self.trainee_1)
+        cert, _, _ = check_and_issue_certificate(enrollment)
+
+        self.client.force_authenticate(user=self.trainee_1)
+        response = self.client.get(reverse('trainee-my-certificates'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+
+        item = response.data[0]
+        self.assertEqual(item['certificate_code'], cert.certificate_code)
+        self.assertIn('duration_hours', item)
+        self.assertIn('honors_tier', item)
+        self.assertEqual(item['honors_tier'], 'DISTINCTION')  # default final_grade is 100%
+
+    def test_step15_honors_tier_classification(self):
+        """Verify honors tier property: DISTINCTION (>=90%), MERIT (>=80%), PASS (<80%)."""
+        enrollment = self._complete_subjects_for_course_1(self.trainee_1)
+        cert, _, _ = check_and_issue_certificate(enrollment)
+
+        cert.final_grade_percentage = 95.0
+        cert.save()
+        self.assertEqual(cert.honors_tier, 'DISTINCTION')
+
+        cert.final_grade_percentage = 85.0
+        cert.save()
+        self.assertEqual(cert.honors_tier, 'MERIT')
+
+        cert.final_grade_percentage = 75.0
+        cert.save()
+        self.assertEqual(cert.honors_tier, 'PASS')
+
+    def test_step15_trainee_summary_metrics(self):
+        """Verify /api/certificates/my-summary/ aggregate achievement metrics."""
+        enrollment = self._complete_subjects_for_course_1(self.trainee_1)
+        cert, _, _ = check_and_issue_certificate(enrollment)
+
+        self.client.force_authenticate(user=self.trainee_1)
+        response = self.client.get(reverse('trainee-certificate-summary'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        self.assertEqual(data['total_certificates'], 1)
+        self.assertEqual(data['cumulative_grade_average'], 100.0)
+        self.assertEqual(data['distinctions_count'], 1)
+        self.assertIn(self.course_1.category, data['categories_mastered'])
+
+    def test_step15_transcript_structure_and_records(self):
+        """Verify /api/certificates/transcript/ returns official academic transcript."""
+        enrollment = self._complete_subjects_for_course_1(self.trainee_1)
+        cert, _, _ = check_and_issue_certificate(enrollment)
+
+        self.client.force_authenticate(user=self.trainee_1)
+        response = self.client.get(reverse('trainee-transcript'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        self.assertEqual(data['student_id'], self.trainee_1.id)
+        self.assertEqual(data['total_courses_completed'], 1)
+        self.assertEqual(len(data['records']), 1)
+
+        rec = data['records'][0]
+        self.assertEqual(rec['course_id'], self.course_1.id)
+        self.assertEqual(rec['certificate_code'], cert.certificate_code)
+        self.assertTrue(rec['is_valid'])
+
+    def test_step15_unauthenticated_cannot_access_portfolio_or_transcript(self):
+        """Anonymous user receives 401 on my-certificates, my-summary, and transcript."""
+        self.assertEqual(self.client.get(reverse('trainee-my-certificates')).status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.client.get(reverse('trainee-certificate-summary')).status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.client.get(reverse('trainee-transcript')).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_step15_trainer_cannot_access_trainee_summary(self):
+        """Trainers receive 403 when trying to access trainee summary endpoint."""
+        self.client.force_authenticate(user=self.trainer_1)
+        response = self.client.get(reverse('trainee-certificate-summary'))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 

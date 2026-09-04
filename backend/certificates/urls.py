@@ -8,6 +8,8 @@ from . import views
 urlpatterns = [
     # Trainee endpoints
     path('my-certificates/', views.TraineeMyCertificatesView.as_view(), name='trainee-my-certificates'),
+    path('my-summary/', views.TraineeCertificateSummaryView.as_view(), name='trainee-certificate-summary'),
+    path('transcript/', views.TraineeTranscriptView.as_view(), name='trainee-transcript'),
     path('<int:pk>/', views.TraineeCertificateDetailView.as_view(), name='trainee-certificate-detail'),
     path('claim/<int:enrollment_id>/', views.TraineeClaimCertificateView.as_view(), name='trainee-claim-certificate'),
 

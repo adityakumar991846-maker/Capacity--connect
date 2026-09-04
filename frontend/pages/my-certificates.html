@@ -1,0 +1,381 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Certificates & Achievements — Capacity Connect</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+          crossorigin="anonymous">
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+          rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #printableCertificateArea, #printableCertificateArea * {
+                visibility: visible !important;
+            }
+            #printableTranscriptArea, #printableTranscriptArea * {
+                visibility: visible !important;
+            }
+            #printableCertificateArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 20px !important;
+                border: 2px solid #000 !important;
+            }
+            #printableTranscriptArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 10px !important;
+            }
+            .modal-footer, .btn-close {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div class="cc-sidebar-backdrop" id="cc-sidebar-backdrop"></div>
+
+    <!-- Sidebar -->
+    <aside class="cc-sidebar" id="cc-sidebar">
+        <!-- Brand Header -->
+        <a href="../index.html" class="cc-sidebar-brand">
+            <i class="bi bi-lightning-charge-fill me-2"></i>
+            <span>Capacity Connect</span>
+        </a>
+
+        <!-- User Identity Snippet -->
+        <div class="cc-sidebar-user">
+            <div class="d-flex align-items-center">
+                <div class="avatar me-3">
+                    <span class="cc-avatar-initial">T</span>
+                </div>
+                <div class="overflow-hidden">
+                    <div class="fw-bold text-white text-truncate cc-username-display">Trainee</div>
+                    <span class="badge cc-role-badge bg-info text-dark">TRAINEE</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Role Navigation -->
+        <nav class="cc-sidebar-nav">
+            <div class="cc-nav-section-title">Learning Space</div>
+            <a href="trainee-dashboard.html" class="cc-nav-link">
+                <i class="bi bi-grid-1x2-fill"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="my-courses.html" class="cc-nav-link">
+                <i class="bi bi-journal-bookmark-fill"></i>
+                <span>My Courses</span>
+                <span class="badge bg-secondary-subtle text-muted" id="sidebarMyCoursesCount">0</span>
+            </a>
+            <a href="browse-courses.html" class="cc-nav-link">
+                <i class="bi bi-compass-fill"></i>
+                <span>Browse Courses</span>
+            </a>
+            <a href="#" class="cc-nav-link text-muted opacity-75">
+                <i class="bi bi-check2-circle"></i>
+                <span>Assessments</span>
+                <span class="badge bg-primary-subtle text-primary">Soon</span>
+            </a>
+            <a href="my-courses.html" class="cc-nav-link">
+                <i class="bi bi-graph-up-arrow"></i>
+                <span>Progress</span>
+            </a>
+            <a href="my-certificates.html" class="cc-nav-link active">
+                <i class="bi bi-award-fill"></i>
+                <span>Certificates</span>
+            </a>
+
+            <div class="cc-nav-section-title mt-3">Account & Support</div>
+            <a href="#" class="cc-nav-link text-muted opacity-75">
+                <i class="bi bi-person-gear"></i>
+                <span>Profile</span>
+            </a>
+        </nav>
+
+        <!-- Sidebar Footer -->
+        <div class="cc-sidebar-footer">
+            <a href="#" class="cc-nav-link text-danger" onclick="Auth.logout(); return false;">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Sign Out</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <div class="cc-main-wrapper">
+        <!-- Topbar -->
+        <header class="cc-topbar">
+            <!-- Mobile Toggle -->
+            <button class="cc-sidebar-toggle-btn d-lg-none me-2" id="sidebarToggleBtn" aria-label="Toggle Navigation">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <!-- Page Title -->
+            <div class="d-flex align-items-center">
+                <h5 class="fw-bold mb-0 text-dark">Credentials & Transcripts</h5>
+            </div>
+
+            <!-- Topbar Right Actions -->
+            <div class="cc-topbar-actions ms-auto">
+                <button class="btn btn-outline-primary btn-sm rounded-3 d-inline-flex align-items-center me-2" onclick="MyCertificatesController.openTranscriptModal();">
+                    <i class="bi bi-file-earmark-text me-1"></i>Official Transcript
+                </button>
+                <a href="browse-courses.html" class="btn btn-primary btn-sm rounded-3 d-none d-sm-inline-flex align-items-center me-2">
+                    <i class="bi bi-compass me-1"></i>Browse Courses
+                </a>
+
+                <!-- User Dropdown Menu -->
+                <div class="dropdown ms-2">
+                    <button class="btn btn-light d-flex align-items-center border-0 py-1 px-2 rounded-3"
+                            type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="bg-info-subtle text-primary rounded-circle p-1 me-2" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                            <span class="cc-avatar-initial fw-bold small">T</span>
+                        </div>
+                        <div class="text-start d-none d-sm-block me-2">
+                            <div class="small fw-bold text-dark cc-username-display">Trainee</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Trainee Portal</div>
+                        </div>
+                        <i class="bi bi-chevron-down small text-muted"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
+                        <li>
+                            <div class="dropdown-item-text py-2">
+                                <div class="fw-bold cc-username-display">Trainee</div>
+                                <div class="text-muted small cc-email-display">user@example.com</div>
+                            </div>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="trainee-dashboard.html"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="my-courses.html"><i class="bi bi-journal-bookmark me-2"></i>My Enrollments</a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="#" onclick="Auth.logout(); return false;">
+                                <i class="bi bi-box-arrow-right me-2"></i>Sign Out
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="cc-content">
+            <!-- Header Banner -->
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+                <div>
+                    <h4 class="fw-bold text-dark mb-1">Trainee Credential Portfolio</h4>
+                    <p class="text-muted small mb-0">View, share, and verify your official course completion certificates and academic transcripts.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary btn-sm px-3 d-inline-flex align-items-center shadow-sm" onclick="MyCertificatesController.openTranscriptModal();">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>View Academic Transcript
+                    </button>
+                </div>
+            </div>
+
+            <!-- Achievement Summary KPI Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-sm-6 col-xl-3">
+                    <div class="cc-stat-card shadow-sm">
+                        <div>
+                            <div class="cc-stat-label">Total Certificates</div>
+                            <div class="cc-stat-value" id="statTotalCertificates">0</div>
+                            <div class="cc-stat-subtext">Verified credentials earned</div>
+                        </div>
+                        <div class="cc-stat-icon primary">
+                            <i class="bi bi-award-fill"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                    <div class="cc-stat-card shadow-sm">
+                        <div>
+                            <div class="cc-stat-label">Cumulative Grade</div>
+                            <div class="cc-stat-value" id="statAverageGrade">0.0%</div>
+                            <div class="cc-stat-subtext">Platform academic average</div>
+                        </div>
+                        <div class="cc-stat-icon warning">
+                            <i class="bi bi-percent"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                    <div class="cc-stat-card shadow-sm">
+                        <div>
+                            <div class="cc-stat-label">Certified Hours</div>
+                            <div class="cc-stat-value" id="statTotalCertifiedHours">0 hrs</div>
+                            <div class="cc-stat-subtext">Dedicated learning time</div>
+                        </div>
+                        <div class="cc-stat-icon info">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                    <div class="cc-stat-card shadow-sm">
+                        <div>
+                            <div class="cc-stat-label">Honors & Distinctions</div>
+                            <div class="cc-stat-value" id="statDistinctions">0</div>
+                            <div class="cc-stat-subtext">&ge; 90% top academic tier</div>
+                        </div>
+                        <div class="cc-stat-icon success">
+                            <i class="bi bi-patch-check-fill"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="card border-0 shadow-sm rounded-3 mb-4">
+                <div class="card-body p-3">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-6">
+                            <div class="btn-group btn-group-sm w-100 w-md-auto" role="group">
+                                <button type="button" class="btn btn-outline-secondary cert-filter-tab active" data-filter="ALL" onclick="MyCertificatesController.filterTab('ALL');">
+                                    All Credentials
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary cert-filter-tab" data-filter="DISTINCTION" onclick="MyCertificatesController.filterTab('DISTINCTION');">
+                                    <i class="bi bi-patch-check-fill text-warning me-1"></i>With Distinction
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary cert-filter-tab" data-filter="ACTIVE" onclick="MyCertificatesController.filterTab('ACTIVE');">
+                                    Active / Valid
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" class="form-control border-start-0" id="certSearchInput" placeholder="Search by course title, code, or category...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Certificate Portfolio Cards Grid -->
+            <div class="row g-4 mb-4" id="certificatesGrid">
+                <!-- Dynamically loaded -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="certificatesEmptyState" class="p-5 text-center bg-white rounded-3 shadow-sm border d-none">
+                <div class="avatar bg-primary-subtle text-primary rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:64px;height:64px;">
+                    <i class="bi bi-award fs-2"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">No Credentials Found</h5>
+                <p class="text-muted small mb-4">Complete 100% of your course subjects and pass all assignments to earn your verified certificates of completion.</p>
+                <a href="my-courses.html" class="btn btn-primary btn-sm px-4">
+                    <i class="bi bi-journal-bookmark me-1"></i>Go to My Courses
+                </a>
+            </div>
+
+            <!-- Error State -->
+            <div id="certificatesErrorState" class="p-5 text-center bg-white rounded-3 shadow-sm border border-danger-subtle d-none">
+                <i class="bi bi-exclamation-triangle-fill text-danger fs-2 mb-2 d-block"></i>
+                <h5 class="fw-bold text-dark mb-2">Failed to Load Credentials</h5>
+                <p class="text-muted small mb-3 error-message">An error occurred while connecting to the credential registry.</p>
+                <button class="btn btn-outline-primary btn-sm px-4" onclick="MyCertificatesController.loadCertificates();">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Retry
+                </button>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white border-top py-3 px-4 text-center text-muted small mt-auto">
+            &copy; 2026 Capacity Connect. Empowering skill-building and capacity management.
+        </footer>
+    </div>
+
+    <!-- Modal: View / Print Certificate -->
+    <div class="modal fade" id="certificateViewModal" tabindex="-1" aria-labelledby="certificateViewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark" id="certificateViewModalLabel">Certificate Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" id="certificateModalBody">
+                    <!-- Loaded dynamically -->
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="MyCertificatesController.printCertificate();">
+                        <i class="bi bi-printer me-1"></i>Print Certificate
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Official Academic Transcript -->
+    <div class="modal fade" id="academicTranscriptModal" tabindex="-1" aria-labelledby="academicTranscriptModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark" id="academicTranscriptModalLabel">Academic Record</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" id="transcriptModalBody">
+                    <!-- Loaded dynamically -->
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="window.print();">
+                        <i class="bi bi-printer me-1"></i>Print Official Transcript
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+            crossorigin="anonymous"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/supabase-config.js"></script>
+    <script src="../js/supabase-client.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/dashboard.js"></script>
+    <script src="../js/my-certificates.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            await Dashboard.init('TRAINEE');
+            await MyCertificatesController.init();
+        });
+    </script>
+</body>
+</html>

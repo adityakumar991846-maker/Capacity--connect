@@ -22,6 +22,8 @@ from .serializers import (
     CertificateRevokeSerializer,
     CertificateTrainerRosterSerializer,
     AdminCertificateListSerializer,
+    TraineeCertificateSummarySerializer,
+    AcademicTranscriptSerializer,
 )
 
 
@@ -119,8 +121,90 @@ class TraineeMyCertificatesView(APIView):
     permission_classes = [IsAuthenticated, IsTraineeOrAdmin]
 
     def get(self, request):
-        certs = Certificate.objects.filter(trainee=request.user)
+        certs = Certificate.objects.filter(trainee=request.user).select_related('course', 'course__trainer')
         serializer = CertificateListSerializer(certs, many=True)
+        return Response(serializer.data)
+
+
+class TraineeCertificateSummaryView(APIView):
+    """
+    GET /api/certificates/my-summary/ - Trainee achievement KPIs and certification stats
+    """
+    permission_classes = [IsAuthenticated, IsTraineeOrAdmin]
+
+    def get(self, request):
+        certs = Certificate.objects.filter(
+            trainee=request.user,
+            is_revoked=False
+        ).select_related('course')
+
+        total_certs = certs.count()
+        total_hours = sum(c.course.duration_hours or 0 for c in certs)
+        grades = [c.final_grade_percentage for c in certs if c.final_grade_percentage is not None]
+        avg_grade = round(sum(grades) / len(grades), 2) if grades else 0.0
+        categories = list(set(c.course.category for c in certs if c.course.category))
+        distinctions = sum(1 for c in certs if c.honors_tier == 'DISTINCTION')
+
+        data = {
+            'total_certificates': total_certs,
+            'cumulative_grade_average': avg_grade,
+            'total_certified_hours': total_hours,
+            'categories_mastered': categories,
+            'distinctions_count': distinctions,
+        }
+        serializer = TraineeCertificateSummarySerializer(data)
+        return Response(serializer.data)
+
+
+class TraineeTranscriptView(APIView):
+    """
+    GET /api/certificates/transcript/ - Official academic transcript document
+    """
+    permission_classes = [IsAuthenticated, IsTraineeOrAdmin]
+
+    def get(self, request):
+        from django.utils import timezone
+        user = request.user
+        certs = Certificate.objects.filter(trainee=user).select_related('course', 'course__trainer').order_by('issued_at')
+
+        records = []
+        valid_certs = [c for c in certs if not c.is_revoked]
+        total_hours = sum(c.course.duration_hours or 0 for c in valid_certs)
+        grades = [c.final_grade_percentage for c in valid_certs if c.final_grade_percentage is not None]
+        avg_grade = round(sum(grades) / len(grades), 2) if grades else 0.0
+
+        for c in certs:
+            trainer_name = 'Capacity Connect Instructor'
+            if c.course.trainer:
+                full = f'{c.course.trainer.first_name} {c.course.trainer.last_name}'.strip()
+                trainer_name = full or c.course.trainer.username
+
+            records.append({
+                'course_id': c.course.id,
+                'course_title': c.course.title,
+                'category': c.course.category or 'General',
+                'level': c.course.level,
+                'duration_hours': c.course.duration_hours or 0,
+                'trainer_name': trainer_name,
+                'completion_date': c.issued_at,
+                'final_grade': c.final_grade_percentage,
+                'honors_tier': c.honors_tier,
+                'certificate_code': c.certificate_code,
+                'is_valid': not c.is_revoked,
+            })
+
+        student_name = f'{user.first_name} {user.last_name}'.strip() or user.username
+        data = {
+            'student_id': user.id,
+            'student_name': student_name,
+            'student_email': user.email,
+            'generated_at': timezone.now(),
+            'total_courses_completed': len(valid_certs),
+            'cumulative_grade_average': avg_grade,
+            'total_hours_completed': total_hours,
+            'records': records,
+        }
+        serializer = AcademicTranscriptSerializer(data)
         return Response(serializer.data)
 
 
