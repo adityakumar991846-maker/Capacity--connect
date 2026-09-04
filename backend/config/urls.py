@@ -17,6 +17,7 @@ urlpatterns = [
     path('api/assessments/', include('assessments.urls')),
     path('api/certificates/', include('certificates.urls')),
     path('api/discussions/', include('discussions.urls')),
+    path('api/assignments/', include('assignments.urls')),
 
     # DRF browsable API auth (login/logout for the browsable API)
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),

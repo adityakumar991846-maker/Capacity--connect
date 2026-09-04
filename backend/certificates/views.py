@@ -72,6 +72,24 @@ def check_and_issue_certificate(enrollment):
         best_pct = max(a.percentage for a in passed_attempts)
         best_percentages.append(best_pct)
 
+    # Check mandatory published assignments (Step 13)
+    if hasattr(enrollment.course, 'assignments'):
+        mandatory_assignments = enrollment.course.assignments.filter(
+            is_mandatory=True,
+            is_published=True,
+        )
+        for assign in mandatory_assignments:
+            passed_sub = assign.submissions.filter(
+                trainee=enrollment.trainee,
+                review__passed=True,
+            ).first()
+            if not passed_sub:
+                return None, False, f'Mandatory assignment "{assign.title}" has not been passed.'
+            if hasattr(passed_sub, 'review') and passed_sub.review:
+                # Factor in assignment percentage if available
+                assign_pct = round((passed_sub.review.score / assign.max_score) * 100, 2)
+                best_percentages.append(assign_pct)
+
     # Calculate final grade
     if best_percentages:
         final_grade = round(sum(best_percentages) / len(best_percentages), 2)

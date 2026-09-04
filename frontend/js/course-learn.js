@@ -92,6 +92,16 @@ const CourseLearnController = {
             this.renderSyllabusDrawer();
             this.renderActiveSubject();
 
+            // Load Step 13 Assignments
+            if (typeof AssignmentsController !== 'undefined') {
+                await AssignmentsController.loadCourseAssignments(courseId);
+                const currentSp = this._enrollment.subject_progresses[this._activeSubjectIndex];
+                if (currentSp) {
+                    const assignContainer = document.getElementById('moduleAssignmentContainer');
+                    AssignmentsController.renderModuleAssignment(currentSp.subject_id, assignContainer);
+                }
+            }
+
             // Initialize Step 12 Discussions
             const currentSp = this._enrollment.subject_progresses[this._activeSubjectIndex];
             const activeSubjId = currentSp ? currentSp.subject_id : null;
@@ -349,8 +359,14 @@ const CourseLearnController = {
             this.renderActiveSubject();
 
             const currentSp = progresses[index];
-            if (currentSp && typeof DiscussionsController !== 'undefined') {
-                DiscussionsController.setActiveSubject(currentSp.subject_id);
+            if (currentSp) {
+                if (typeof AssignmentsController !== 'undefined') {
+                    const assignContainer = document.getElementById('moduleAssignmentContainer');
+                    AssignmentsController.renderModuleAssignment(currentSp.subject_id, assignContainer);
+                }
+                if (typeof DiscussionsController !== 'undefined') {
+                    DiscussionsController.setActiveSubject(currentSp.subject_id);
+                }
             }
         }
     },

@@ -264,6 +264,26 @@
                             <!-- Populated dynamically -->
                         </div>
                     </div>
+
+                    <!-- Assignment Grading Workbench (Step 13) -->
+                    <div class="cc-card shadow-sm mt-4" id="trainerAssignmentsSection">
+                        <div class="cc-card-header d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="fw-bold mb-0 text-dark d-inline-block">
+                                    <i class="bi bi-clipboard-check-fill text-success me-2"></i>Assignment Grading Workbench
+                                </h5>
+                                <span class="badge bg-danger rounded-pill ms-2 d-none" id="pendingSubmissionsBadge">0 Pending</span>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary active" onclick="AssignmentsController.loadTrainerPendingReviews('');">All Pending</button>
+                                <button class="btn btn-outline-secondary" onclick="AssignmentsController.loadTrainerPendingReviews('SUBMITTED');">Submitted</button>
+                                <button class="btn btn-outline-secondary" onclick="AssignmentsController.loadTrainerPendingReviews('RESUBMISSION_REQUESTED');">Resubmissions</button>
+                            </div>
+                        </div>
+                        <div class="cc-card-body p-0" id="trainerAssignmentsContainer">
+                            <!-- Populated dynamically by AssignmentsController -->
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Right Column: Guidelines & Insights -->
@@ -649,6 +669,72 @@
         </div>
     </div>
 
+    <!-- Grading Workbench Evaluation Modal (Step 13) -->
+    <div class="modal fade" id="gradingWorkbenchModal" tabindex="-1" aria-labelledby="gradingWorkbenchModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header border-bottom py-3 px-4 bg-light">
+                    <div>
+                        <span class="badge bg-success px-2 py-1 small fw-semibold mb-1">Step 13 Evaluation Console</span>
+                        <h5 class="modal-title fw-bold text-dark" id="gradingWorkbenchModalLabel">
+                            <i class="bi bi-pencil-square text-success me-2"></i>Evaluate Trainee Submission
+                        </h5>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Submission Metadata -->
+                    <div class="row g-3 mb-3 p-3 bg-light rounded-3">
+                        <div class="col-sm-6">
+                            <span class="text-muted small">Student:</span>
+                            <div class="fw-bold text-dark" id="gradeModalStudent">—</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="text-muted small">Assignment:</span>
+                            <div class="fw-bold text-dark" id="gradeModalAssignment">—</div>
+                        </div>
+                    </div>
+
+                    <!-- Deliverable Details -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold text-dark small">Trainee Deliverable:</label>
+                        <div class="border rounded-3 p-3 bg-white" id="gradeModalDeliverable">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Score Input -->
+                    <div class="mb-3">
+                        <label for="gradeScoreInput" class="form-label fw-semibold text-dark small">
+                            Evaluation Score (Points) <span class="text-danger">*</span>
+                        </label>
+                        <input type="number" class="form-control" id="gradeScoreInput" min="0" required>
+                        <div class="form-text" id="gradeModalScoreHelp">Passing score required.</div>
+                    </div>
+
+                    <!-- Feedback Input -->
+                    <div class="mb-3">
+                        <label for="gradeFeedbackInput" class="form-label fw-semibold text-dark small">
+                            Instructor Feedback &amp; Rubric Notes <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="gradeFeedbackInput" rows="4" placeholder="Provide constructive remarks, code review suggestions, or areas for improvement..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top py-2 px-4 d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-warning btn-sm px-3 fw-semibold" onclick="AssignmentsController.submitEvaluation(true);">
+                        <i class="bi bi-arrow-repeat me-1"></i>Request Resubmission
+                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-light btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success btn-sm px-4 fw-semibold" onclick="AssignmentsController.submitEvaluation(false);">
+                            <i class="bi bi-check-circle-fill me-1"></i>Confirm &amp; Finalize Grade
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Supabase JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -665,6 +751,7 @@
     <script src="../js/dashboard.js"></script>
     <script src="../js/trainer-dashboard.js"></script>
     <script src="../js/discussions.js"></script>
+    <script src="../js/assignments.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
@@ -672,6 +759,9 @@
             if (typeof DiscussionsController !== 'undefined') {
                 DiscussionsController.initNotifications();
                 DiscussionsController.loadTrainerInbox('false');
+            }
+            if (typeof AssignmentsController !== 'undefined') {
+                AssignmentsController.loadTrainerPendingReviews();
             }
         });
     </script>
