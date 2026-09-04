@@ -92,6 +92,14 @@ const CourseLearnController = {
             this.renderSyllabusDrawer();
             this.renderActiveSubject();
 
+            // Initialize Step 12 Discussions
+            const currentSp = this._enrollment.subject_progresses[this._activeSubjectIndex];
+            const activeSubjId = currentSp ? currentSp.subject_id : null;
+            if (typeof DiscussionsController !== 'undefined') {
+                DiscussionsController.initCourseDiscussions(courseId, activeSubjId);
+            }
+            this.populateDiscussionSubjects();
+
             if (loadingContainer) loadingContainer.classList.add('d-none');
             if (contentContainer) contentContainer.classList.remove('d-none');
 
@@ -339,7 +347,65 @@ const CourseLearnController = {
             this._activeSubjectIndex = index;
             this.renderSyllabusDrawer();
             this.renderActiveSubject();
+
+            const currentSp = progresses[index];
+            if (currentSp && typeof DiscussionsController !== 'undefined') {
+                DiscussionsController.setActiveSubject(currentSp.subject_id);
+            }
         }
+    },
+
+    /**
+     * Switch learning viewer tab (Lesson Content vs Q&A vs Announcements).
+     */
+    switchViewerTab(tab) {
+        const contentPane = document.getElementById('viewerContentPane');
+        const discPane = document.getElementById('viewerDiscussionPane');
+        const tabContentBtn = document.getElementById('tabContentBtn');
+        const tabDiscussionBtn = document.getElementById('tabDiscussionBtn');
+        const tabAnnouncementsBtn = document.getElementById('tabAnnouncementsBtn');
+
+        if (!contentPane || !discPane) return;
+
+        if (tab === 'content') {
+            contentPane.classList.remove('d-none');
+            discPane.classList.add('d-none');
+            if (tabContentBtn) tabContentBtn.classList.add('active');
+            if (tabDiscussionBtn) tabDiscussionBtn.classList.remove('active');
+            if (tabAnnouncementsBtn) tabAnnouncementsBtn.classList.remove('active');
+        } else if (tab === 'discussion') {
+            contentPane.classList.add('d-none');
+            discPane.classList.remove('d-none');
+            if (tabContentBtn) tabContentBtn.classList.remove('active');
+            if (tabDiscussionBtn) tabDiscussionBtn.classList.add('active');
+            if (tabAnnouncementsBtn) tabAnnouncementsBtn.classList.remove('active');
+            if (typeof DiscussionsController !== 'undefined') {
+                DiscussionsController.setFilterTab('all');
+            }
+        } else if (tab === 'announcements') {
+            contentPane.classList.add('d-none');
+            discPane.classList.remove('d-none');
+            if (tabContentBtn) tabContentBtn.classList.remove('active');
+            if (tabDiscussionBtn) tabDiscussionBtn.classList.remove('active');
+            if (tabAnnouncementsBtn) tabAnnouncementsBtn.classList.add('active');
+            if (typeof DiscussionsController !== 'undefined') {
+                DiscussionsController.setFilterTab('announcements');
+            }
+        }
+    },
+
+    /**
+     * Populate discussion subject select dropdown with modules.
+     */
+    populateDiscussionSubjects() {
+        const select = document.getElementById('threadSubjectSelect');
+        if (!select || !this._course || !Array.isArray(this._course.subjects)) return;
+
+        const options = ['<option value="">General Course Discussion (No Specific Module)</option>'];
+        this._course.subjects.forEach(s => {
+            options.push(`<option value="${s.id}">Module ${s.order}: ${TraineeLearning.escapeHtml(s.title)}</option>`);
+        });
+        select.innerHTML = options.join('');
     },
 
     /**
