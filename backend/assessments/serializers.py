@@ -332,3 +332,51 @@ class AssessmentAttemptRosterSerializer(serializers.ModelSerializer):
             'started_at',
             'submitted_at',
         ]
+
+
+class AdminAssessmentListSerializer(serializers.ModelSerializer):
+    """Platform-wide assessment overview for Admin governance."""
+    course_id = serializers.IntegerField(source='course.id', read_only=True)
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    trainer_username = serializers.CharField(source='created_by.username', read_only=True)
+    subject_title = serializers.CharField(source='subject.title', read_only=True, default=None)
+    questions_count = serializers.SerializerMethodField()
+    attempts_count = serializers.SerializerMethodField()
+    pass_count = serializers.SerializerMethodField()
+    pass_rate = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Assessment
+        fields = [
+            'id',
+            'title',
+            'course_id',
+            'course_title',
+            'subject_title',
+            'trainer_username',
+            'status',
+            'duration_minutes',
+            'passing_percentage',
+            'questions_count',
+            'attempts_count',
+            'pass_count',
+            'pass_rate',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_questions_count(self, obj):
+        return obj.questions.count()
+
+    def get_attempts_count(self, obj):
+        return obj.attempts.count()
+
+    def get_pass_count(self, obj):
+        return obj.attempts.filter(passed=True).count()
+
+    def get_pass_rate(self, obj):
+        total = obj.attempts.count()
+        if total == 0:
+            return 0.0
+        passed = obj.attempts.filter(passed=True).count()
+        return round((passed / total) * 100, 1)

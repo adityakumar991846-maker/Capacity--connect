@@ -29,9 +29,13 @@ const AdminDashboard = {
             document.getElementById('statEnrollments').textContent = stats.total_enrollments || 0;
             document.getElementById('statAvgCompletion').textContent = `${stats.platform_avg_completion || 0}%`;
 
-            // Update pending badge
+            // Update pending approvals indicators
+            const pendingCount = stats.draft_courses || 0;
+            const pendingEl = document.getElementById('statPendingCourses');
+            if (pendingEl) pendingEl.textContent = pendingCount;
+
             const pendingBadge = document.getElementById('pendingApprovalsBadge');
-            if (pendingBadge) pendingBadge.textContent = `${stats.draft_courses || 0} Pending`;
+            if (pendingBadge) pendingBadge.textContent = `${pendingCount} Pending`;
         } catch (err) {
             console.error('[AdminDashboard] Error loading stats:', err);
         }
@@ -41,30 +45,47 @@ const AdminDashboard = {
     // COURSE APPROVALS
     // =========================================================================
 
-    async loadCourseApprovals(statusFilter = '') {
+    _activeCourseFilter: '',
+
+    async loadCourseApprovals(statusFilter = null, search = '') {
         const container = document.getElementById('courseApprovalsContainer');
         if (!container) return;
+
+        if (statusFilter !== null) {
+            this._activeCourseFilter = statusFilter;
+        }
+        const effectiveFilter = this._activeCourseFilter || '';
 
         container.innerHTML = `
             <div class="text-center py-4">
                 <div class="spinner-border spinner-border-sm text-primary"></div>
-                <p class="text-muted small mt-2 mb-0">Loading courses...</p>
+                <p class="text-muted small mt-2 mb-0">Loading course catalog...</p>
             </div>
         `;
 
         try {
-            const url = statusFilter
-                ? `/courses/admin/courses/?status=${statusFilter}`
+            let url = effectiveFilter
+                ? `/courses/admin/courses/?status=${effectiveFilter}`
                 : '/courses/admin/courses/';
+
             const courses = await apiRequest(url);
-            const courseList = Array.isArray(courses) ? courses : [];
+            let courseList = Array.isArray(courses) ? courses : [];
+
+            if (search && search.trim()) {
+                const q = search.trim().toLowerCase();
+                courseList = courseList.filter(c =>
+                    (c.title && c.title.toLowerCase().includes(q)) ||
+                    (c.category && c.category.toLowerCase().includes(q)) ||
+                    (c.trainer_username && c.trainer_username.toLowerCase().includes(q))
+                );
+            }
 
             if (courseList.length === 0) {
                 container.innerHTML = `
-                    <div class="p-4 text-center bg-light rounded-3">
-                        <i class="bi bi-check2-all fs-2 text-success mb-2 d-block"></i>
+                    <div class="p-4 text-center bg-light rounded-3 m-3">
+                        <i class="bi bi-journal-x fs-2 text-muted mb-2 d-block"></i>
                         <h6 class="fw-bold text-dark">No Courses Found</h6>
-                        <p class="text-muted small mb-0">No courses match the current filter.</p>
+                        <p class="text-muted small mb-0">No courses match the current filter or search criteria.</p>
                     </div>
                 `;
                 return;
@@ -79,25 +100,30 @@ const AdminDashboard = {
                 };
                 const statusBadge = statusBadgeMap[c.status] || `<span class="badge bg-light text-muted">${c.status}</span>`;
 
-                let actions = '';
+                let actions = `
+                    <button class="btn btn-outline-primary btn-sm py-0 px-2 me-1" onclick="AdminDashboard.openCourseDetailModal(${c.id})" title="Inspect Course Details">
+                        <i class="bi bi-eye me-1"></i>Details
+                    </button>
+                `;
+
                 if (c.status === 'DRAFT') {
-                    actions = `
+                    actions += `
                         <button class="btn btn-success btn-sm py-0 px-2 me-1" onclick="AdminDashboard.publishCourse(${c.id})" title="Approve & Publish">
                             <i class="bi bi-check-lg me-1"></i>Publish
                         </button>
-                        <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="AdminDashboard.rejectCourse(${c.id})" title="Reject">
+                        <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="AdminDashboard.promptRejectCourse(${c.id}, '${this.escapeJs(c.title)}')" title="Reject with Reason">
                             <i class="bi bi-x-lg me-1"></i>Reject
                         </button>
                     `;
                 } else if (c.status === 'PUBLISHED') {
-                    actions = `
-                        <button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="AdminDashboard.archiveCourse(${c.id})" title="Archive">
+                    actions += `
+                        <button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="AdminDashboard.archiveCourse(${c.id})" title="Archive Course">
                             <i class="bi bi-archive me-1"></i>Archive
                         </button>
                     `;
                 } else if (c.status === 'REJECTED') {
-                    actions = `
-                        <button class="btn btn-success btn-sm py-0 px-2" onclick="AdminDashboard.publishCourse(${c.id})" title="Approve & Publish">
+                    actions += `
+                        <button class="btn btn-success btn-sm py-0 px-2" onclick="AdminDashboard.publishCourse(${c.id})" title="Re-approve & Publish">
                             <i class="bi bi-check-lg me-1"></i>Publish
                         </button>
                     `;
@@ -111,10 +137,16 @@ const AdminDashboard = {
                     <tr>
                         <td class="ps-3">
                             <div class="fw-semibold text-dark">${this.escapeHtml(c.title)}</div>
-                            <div class="text-muted" style="font-size: 0.75rem;">${this.escapeHtml(c.category)} &bull; ${c.subject_count || 0} modules &bull; ${c.enrollment_count || 0} enrolled</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">
+                                <span class="badge bg-light text-dark border me-1">${this.escapeHtml(c.category)}</span>
+                                ${c.subject_count || 0} modules &bull; ${c.enrollment_count || 0} enrolled &bull; ${c.duration_hours || 0}h
+                            </div>
                             ${rejectionNote}
                         </td>
-                        <td>${this.escapeHtml(c.trainer_username || '')}</td>
+                        <td>
+                            <div class="fw-semibold small">${this.escapeHtml(c.trainer_username || '')}</div>
+                            <div class="text-muted" style="font-size: 0.7rem;">${this.escapeHtml(c.trainer_email || '')}</div>
+                        </td>
                         <td>${statusBadge}</td>
                         <td>${new Date(c.created_at).toLocaleDateString()}</td>
                         <td class="text-end pe-3">${actions}</td>
@@ -128,10 +160,10 @@ const AdminDashboard = {
                         <thead class="table-light text-secondary text-uppercase" style="font-size: 0.75rem;">
                             <tr>
                                 <th class="ps-3">Course</th>
-                                <th>Trainer</th>
+                                <th>Instructor</th>
                                 <th>Status</th>
                                 <th>Created</th>
-                                <th class="text-end pe-3">Actions</th>
+                                <th class="text-end pe-3">Governance Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -146,8 +178,140 @@ const AdminDashboard = {
         }
     },
 
+    async openCourseDetailModal(courseId) {
+        const container = document.getElementById('courseDetailContainer');
+        const footer = document.getElementById('courseDetailModalFooter');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border spinner-border-sm text-primary"></div>
+                <p class="text-muted small mt-2 mb-0">Retrieving full course curriculum...</p>
+            </div>
+        `;
+
+        const modalEl = document.getElementById('courseDetailModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+
+        try {
+            const course = await apiRequest(`/courses/${courseId}/`);
+            const statusBadgeMap = {
+                'DRAFT': '<span class="badge bg-warning-subtle text-warning fs-6">Draft (Pending Approval)</span>',
+                'PUBLISHED': '<span class="badge bg-success-subtle text-success fs-6">Published</span>',
+                'ARCHIVED': '<span class="badge bg-secondary-subtle text-secondary fs-6">Archived</span>',
+                'REJECTED': '<span class="badge bg-danger-subtle text-danger fs-6">Rejected</span>',
+            };
+            const statusBadge = statusBadgeMap[course.status] || course.status;
+
+            let modulesHtml = '<p class="text-muted small mb-0">No modules created yet.</p>';
+            if (Array.isArray(course.subjects) && course.subjects.length > 0) {
+                modulesHtml = `
+                    <div class="list-group list-group-flush border rounded-2">
+                        ${course.subjects.map((s, idx) => `
+                            <div class="list-group-item py-2 px-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="fw-semibold small"><span class="badge bg-light text-secondary me-2">#${s.order !== undefined ? s.order : (idx + 1)}</span>${this.escapeHtml(s.title)}</div>
+                                </div>
+                                ${s.description ? `<div class="text-muted small mt-1" style="font-size:0.75rem;">${this.escapeHtml(s.description)}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            const rejectionAlert = course.rejection_reason
+                ? `<div class="alert alert-danger py-2 px-3 small mb-3"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Rejection Feedback:</strong> ${this.escapeHtml(course.rejection_reason)}</div>`
+                : '';
+
+            container.innerHTML = `
+                <div>
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <span class="badge bg-primary-subtle text-primary mb-1">${this.escapeHtml(course.category || 'General')}</span>
+                            <h4 class="fw-bold mb-1">${this.escapeHtml(course.title)}</h4>
+                            <div class="text-muted small">
+                                Instructor: <strong>${this.escapeHtml(course.trainer ? course.trainer.username : 'Unknown')}</strong>
+                                (${this.escapeHtml(course.trainer ? course.trainer.email : '')}) &bull; Difficulty: <span class="badge bg-secondary-subtle text-dark">${this.escapeHtml(course.level || 'Beginner')}</span>
+                                &bull; Estimated Duration: <strong>${course.duration_hours || 0} Hours</strong>
+                            </div>
+                        </div>
+                        <div>${statusBadge}</div>
+                    </div>
+
+                    ${rejectionAlert}
+
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-dark mb-1">Course Description</h6>
+                        <p class="text-muted small mb-0" style="white-space: pre-wrap;">${this.escapeHtml(course.description || 'No description provided.')}</p>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-dark mb-1">Prerequisites &amp; Requirements</h6>
+                            <p class="text-muted small mb-0" style="white-space: pre-wrap;">${this.escapeHtml(course.requirements || 'None specified.')}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-dark mb-1">Learning Objectives</h6>
+                            <p class="text-muted small mb-0" style="white-space: pre-wrap;">${this.escapeHtml(course.learning_objectives || 'None specified.')}</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold text-dark mb-0">Curriculum / Modules (${Array.isArray(course.subjects) ? course.subjects.length : 0})</h6>
+                        </div>
+                        ${modulesHtml}
+                    </div>
+                </div>
+            `;
+
+            // Setup footer action buttons inside modal
+            let actionButtons = '';
+            if (course.status === 'DRAFT') {
+                actionButtons = `
+                    <div>
+                        <button class="btn btn-success btn-sm me-2" onclick="AdminDashboard.publishCourse(${course.id}); bootstrap.Modal.getInstance(document.getElementById('courseDetailModal')).hide();">
+                            <i class="bi bi-check-circle me-1"></i>Approve &amp; Publish
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="bootstrap.Modal.getInstance(document.getElementById('courseDetailModal')).hide(); AdminDashboard.promptRejectCourse(${course.id}, '${this.escapeJs(course.title)}');">
+                            <i class="bi bi-x-circle me-1"></i>Reject Submission
+                        </button>
+                    </div>
+                `;
+            } else if (course.status === 'PUBLISHED') {
+                actionButtons = `
+                    <div>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="AdminDashboard.archiveCourse(${course.id}); bootstrap.Modal.getInstance(document.getElementById('courseDetailModal')).hide();">
+                            <i class="bi bi-archive me-1"></i>Archive Course
+                        </button>
+                    </div>
+                `;
+            } else if (course.status === 'REJECTED') {
+                actionButtons = `
+                    <div>
+                        <button class="btn btn-success btn-sm" onclick="AdminDashboard.publishCourse(${course.id}); bootstrap.Modal.getInstance(document.getElementById('courseDetailModal')).hide();">
+                            <i class="bi bi-check-circle me-1"></i>Approve &amp; Publish
+                        </button>
+                    </div>
+                `;
+            }
+
+            footer.innerHTML = `
+                ${actionButtons}
+                <button type="button" class="btn btn-secondary btn-sm ms-auto" data-bs-dismiss="modal">Close</button>
+            `;
+
+        } catch (err) {
+            console.error('[AdminDashboard] Error loading course detail:', err);
+            container.innerHTML = `<div class="alert alert-danger small m-3">${this.escapeHtml(err.message)}</div>`;
+        }
+    },
+
     async publishCourse(courseId) {
-        if (!confirm('Are you sure you want to approve and publish this course?')) return;
+        if (!confirm('Are you sure you want to approve and publish this course to the public catalog?')) return;
         try {
             await apiRequest(`/courses/admin/courses/${courseId}/publish/`, { method: 'POST' });
             await this.loadCourseApprovals(this._activeCourseFilter || '');
@@ -157,14 +321,34 @@ const AdminDashboard = {
         }
     },
 
-    async rejectCourse(courseId) {
-        const reason = prompt('Enter the rejection reason (required):');
-        if (!reason || !reason.trim()) return;
+    promptRejectCourse(courseId, courseTitle) {
+        document.getElementById('rejectCourseId').value = courseId;
+        document.getElementById('rejectCourseReasonInput').value = '';
+        const modalEl = document.getElementById('rejectCourseModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    },
+
+    async submitCourseRejection() {
+        const courseId = document.getElementById('rejectCourseId').value;
+        const reason = document.getElementById('rejectCourseReasonInput').value.trim();
+        if (!reason) {
+            alert('A rejection reason is required to provide feedback to the trainer.');
+            return;
+        }
+
         try {
             await apiRequest(`/courses/admin/courses/${courseId}/reject/`, {
                 method: 'POST',
-                body: JSON.stringify({ reason: reason.trim() }),
+                body: JSON.stringify({ reason }),
             });
+            const modalEl = document.getElementById('rejectCourseModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
             await this.loadCourseApprovals(this._activeCourseFilter || '');
             await this.loadPlatformStats();
         } catch (err) {
@@ -173,7 +357,7 @@ const AdminDashboard = {
     },
 
     async archiveCourse(courseId) {
-        if (!confirm('Are you sure you want to archive this course?')) return;
+        if (!confirm('Are you sure you want to archive this course? Learners will no longer see it in browse.')) return;
         try {
             await apiRequest(`/courses/admin/courses/${courseId}/archive/`, { method: 'POST' });
             await this.loadCourseApprovals(this._activeCourseFilter || '');
@@ -183,15 +367,18 @@ const AdminDashboard = {
         }
     },
 
-    _activeCourseFilter: '',
-
     filterCourses(status) {
         this._activeCourseFilter = status;
-        // Update active tab styling
         document.querySelectorAll('.course-filter-tab').forEach(tab => {
             tab.classList.toggle('active', tab.dataset.status === status);
         });
-        this.loadCourseApprovals(status);
+        const search = document.getElementById('courseSearchInput')?.value || '';
+        this.loadCourseApprovals(status, search);
+    },
+
+    handleCourseSearch() {
+        const search = document.getElementById('courseSearchInput')?.value || '';
+        this.loadCourseApprovals(this._activeCourseFilter, search);
     },
 
     // =========================================================================
@@ -449,7 +636,7 @@ const AdminDashboard = {
 
                 const actionBtn = c.is_revoked
                     ? `<button class="btn btn-outline-success btn-sm py-0 px-2" onclick="AdminDashboard.reinstateCertificate(${c.id})" title="Reinstate"><i class="bi bi-arrow-counterclockwise me-1"></i>Reinstate</button>`
-                    : `<button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="AdminDashboard.revokeCertificate(${c.id})" title="Revoke"><i class="bi bi-x-circle me-1"></i>Revoke</button>`;
+                    : `<button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="AdminDashboard.promptRevokeCert(${c.id}, '${this.escapeJs(c.certificate_code)}')" title="Revoke Certificate"><i class="bi bi-x-circle me-1"></i>Revoke</button>`;
 
                 return `
                     <tr>
@@ -496,14 +683,34 @@ const AdminDashboard = {
         this.loadCertificates(search);
     },
 
-    async revokeCertificate(certId) {
-        const reason = prompt('Enter the revocation reason (required):');
-        if (!reason || !reason.trim()) return;
+    promptRevokeCert(certId, certCode) {
+        document.getElementById('revokeCertId').value = certId;
+        document.getElementById('revokeCertReasonInput').value = '';
+        const modalEl = document.getElementById('revokeCertModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    },
+
+    async submitCertRevocation() {
+        const certId = document.getElementById('revokeCertId').value;
+        const reason = document.getElementById('revokeCertReasonInput').value.trim();
+        if (!reason) {
+            alert('A revocation reason is required.');
+            return;
+        }
+
         try {
             await apiRequest(`/certificates/${certId}/revoke/`, {
                 method: 'POST',
-                body: JSON.stringify({ reason: reason.trim() }),
+                body: JSON.stringify({ reason }),
             });
+            const modalEl = document.getElementById('revokeCertModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
             await this.loadCertificates(document.getElementById('certificateSearchInput')?.value || '');
             await this.loadPlatformStats();
         } catch (err) {
@@ -512,7 +719,7 @@ const AdminDashboard = {
     },
 
     async reinstateCertificate(certId) {
-        if (!confirm('Are you sure you want to reinstate this certificate?')) return;
+        if (!confirm('Are you sure you want to reinstate this certificate? It will be marked valid again.')) return;
         try {
             await apiRequest(`/certificates/${certId}/reinstate/`, { method: 'POST' });
             await this.loadCertificates(document.getElementById('certificateSearchInput')?.value || '');
@@ -621,10 +828,373 @@ const AdminDashboard = {
     },
 
     // =========================================================================
+    // ASSESSMENTS GOVERNANCE
+    // =========================================================================
+
+    _activeAssessmentFilter: '',
+
+    async loadAssessments(statusFilter = null, search = '') {
+        const container = document.getElementById('assessmentsContainer');
+        if (!container) return;
+
+        if (statusFilter !== null) {
+            this._activeAssessmentFilter = statusFilter;
+        }
+        const effectiveFilter = this._activeAssessmentFilter || '';
+
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border spinner-border-sm text-primary"></div>
+                <p class="text-muted small mt-2 mb-0">Loading assessments &amp; quiz records...</p>
+            </div>
+        `;
+
+        try {
+            let url = '/assessments/admin/all/';
+            const params = [];
+            if (effectiveFilter) params.push(`status=${effectiveFilter}`);
+            if (search && search.trim()) params.push(`search=${encodeURIComponent(search.trim())}`);
+            if (params.length) url += '?' + params.join('&');
+
+            const assessments = await apiRequest(url);
+            const list = Array.isArray(assessments) ? assessments : [];
+
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div class="p-4 text-center bg-light rounded-3 m-3">
+                        <i class="bi bi-journal-x fs-2 text-muted mb-2 d-block"></i>
+                        <h6 class="fw-bold text-dark">No Assessments Found</h6>
+                        <p class="text-muted small mb-0">No quizzes match the current status filter or search criteria.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const rowsHtml = list.map(a => {
+                const statusBadgeMap = {
+                    'DRAFT': '<span class="badge bg-warning-subtle text-warning">Draft</span>',
+                    'PUBLISHED': '<span class="badge bg-success-subtle text-success">Published</span>',
+                    'ARCHIVED': '<span class="badge bg-secondary-subtle text-secondary">Archived</span>',
+                };
+                const statusBadge = statusBadgeMap[a.status] || a.status;
+
+                return `
+                    <tr>
+                        <td class="ps-3">
+                            <div class="fw-semibold text-dark">${this.escapeHtml(a.title)}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">
+                                Course: <strong>${this.escapeHtml(a.course_title)}</strong>
+                                ${a.subject_title ? `&bull; Module: ${this.escapeHtml(a.subject_title)}` : ''}
+                            </div>
+                        </td>
+                        <td>${this.escapeHtml(a.trainer_username || 'System')}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <div class="small fw-semibold">${a.questions_count || 0} Questions</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">${a.duration_minutes || 0} mins &bull; Pass: ${a.passing_percentage || 70}%</div>
+                        </td>
+                        <td>
+                            <div class="small fw-semibold">${a.attempts_count || 0} attempts</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">${a.pass_count || 0} passed (${a.pass_rate || 0}%)</div>
+                        </td>
+                        <td class="pe-3">${a.created_at ? new Date(a.created_at).toLocaleDateString() : '—'}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light text-secondary text-uppercase" style="font-size: 0.75rem;">
+                            <tr>
+                                <th class="ps-3">Assessment</th>
+                                <th>Instructor</th>
+                                <th>Status</th>
+                                <th>Questions / Pass Score</th>
+                                <th>Trainee Attempts</th>
+                                <th class="pe-3">Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } catch (err) {
+            console.error('[AdminDashboard] Error loading assessments:', err);
+            container.innerHTML = `<div class="alert alert-danger small m-3">${this.escapeHtml(err.message)}</div>`;
+        }
+    },
+
+    filterAssessments(status) {
+        this._activeAssessmentFilter = status;
+        document.querySelectorAll('.assessment-filter-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.status === status);
+        });
+        const search = document.getElementById('assessmentSearchInput')?.value || '';
+        this.loadAssessments(status, search);
+    },
+
+    handleAssessmentSearch() {
+        const search = document.getElementById('assessmentSearchInput')?.value || '';
+        this.loadAssessments(this._activeAssessmentFilter, search);
+    },
+
+    // =========================================================================
+    // PLATFORM ANALYTICS & CAREER READINESS
+    // =========================================================================
+
+    async loadAnalytics() {
+        const container = document.getElementById('analyticsContainer');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border spinner-border-sm text-primary"></div>
+                <p class="text-muted small mt-2 mb-0">Synthesizing platform KPIs and outcome metrics...</p>
+            </div>
+        `;
+
+        try {
+            const data = await apiRequest('/courses/admin/analytics/');
+
+            const total = data.total_enrollments || 0;
+            const active = data.active_enrollments || 0;
+            const completed = data.completed_enrollments || 0;
+            const dropped = data.dropped_enrollments || 0;
+            const completionRate = data.completion_rate || 0;
+            const retentionRate = data.retention_rate || 0;
+
+            const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
+            const compPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+            const dropPct = total > 0 ? Math.round((dropped / total) * 100) : 0;
+
+            // Categories table
+            let categoriesHtml = '<p class="text-muted small">No course category data available.</p>';
+            if (Array.isArray(data.categories) && data.categories.length > 0) {
+                categoriesHtml = `
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 small">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Category</th>
+                                    <th class="text-center">Courses</th>
+                                    <th class="text-end">Learners Enrolled</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.categories.map(c => `
+                                    <tr>
+                                        <td><strong>${this.escapeHtml(c.category)}</strong></td>
+                                        <td class="text-center"><span class="badge bg-light text-dark border">${c.courses_count}</span></td>
+                                        <td class="text-end fw-bold text-primary">${c.enrollments_count}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            // Top courses table
+            let topCoursesHtml = '<p class="text-muted small">No active courses published yet.</p>';
+            if (Array.isArray(data.top_courses) && data.top_courses.length > 0) {
+                topCoursesHtml = `
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 small">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Course</th>
+                                    <th>Instructor</th>
+                                    <th class="text-center">Enrolled</th>
+                                    <th class="text-center">Rating</th>
+                                    <th class="text-end">Completion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.top_courses.map(tc => `
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">${this.escapeHtml(tc.title)}</div>
+                                            <div class="text-muted" style="font-size:0.75rem;">${this.escapeHtml(tc.category)}</div>
+                                        </td>
+                                        <td>${this.escapeHtml(tc.trainer_username)}</td>
+                                        <td class="text-center"><span class="badge bg-primary-subtle text-primary">${tc.enrollment_count}</span></td>
+                                        <td class="text-center text-warning fw-semibold"><i class="bi bi-star-fill me-1"></i>${tc.average_rating ? tc.average_rating.toFixed(1) : '5.0'}</td>
+                                        <td class="text-end fw-bold ${tc.completion_rate >= 70 ? 'text-success' : 'text-primary'}">${tc.completion_rate}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div class="row g-4 mb-4">
+                    <!-- Completion & Retention Funnel -->
+                    <div class="col-lg-6">
+                        <div class="cc-card shadow-sm h-100">
+                            <div class="cc-card-header d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold mb-0 text-dark">
+                                    <i class="bi bi-funnel text-primary me-2"></i>Learner Retention &amp; Completion Funnel
+                                </h6>
+                                <span class="badge bg-primary-subtle text-primary">${total} Total Registrations</span>
+                            </div>
+                            <div class="cc-card-body p-4">
+                                <div class="row g-3 text-center mb-4">
+                                    <div class="col-6">
+                                        <div class="p-3 bg-light rounded-3">
+                                            <div class="text-muted small mb-1">Completion Rate</div>
+                                            <div class="fs-3 fw-bold text-success">${completionRate}%</div>
+                                            <div class="text-muted" style="font-size:0.75rem;">Graduated trainees</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="p-3 bg-light rounded-3">
+                                            <div class="text-muted small mb-1">Retention Rate</div>
+                                            <div class="fs-3 fw-bold text-primary">${retentionRate}%</div>
+                                            <div class="text-muted" style="font-size:0.75rem;">Active or completed</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span>In Progress (${active})</span>
+                                        <strong>${activePct}%</strong>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar bg-primary" style="width: ${activePct}%;"></div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span>Completed &amp; Certified (${completed})</span>
+                                        <strong>${compPct}%</strong>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar bg-success" style="width: ${compPct}%;"></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span>Dropped (${dropped})</span>
+                                        <strong>${dropPct}%</strong>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar bg-secondary" style="width: ${dropPct}%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Career & Placement Readiness -->
+                    <div class="col-lg-6">
+                        <div class="cc-card shadow-sm h-100">
+                            <div class="cc-card-header d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold mb-0 text-dark">
+                                    <i class="bi bi-briefcase text-success me-2"></i>Trainee Career &amp; Placement Readiness
+                                </h6>
+                                <span class="badge bg-success-subtle text-success">Verified Credentials</span>
+                            </div>
+                            <div class="cc-card-body p-4">
+                                <div class="row g-3 text-center mb-4">
+                                    <div class="col-6">
+                                        <div class="p-3 bg-success-subtle bg-opacity-10 border border-success-subtle rounded-3">
+                                            <div class="text-muted small mb-1">Certified Graduates</div>
+                                            <div class="fs-3 fw-bold text-success">${data.placement_ready_trainees || 0}</div>
+                                            <div class="text-muted" style="font-size:0.75rem;">Unique skilled learners</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="p-3 bg-warning-subtle bg-opacity-10 border border-warning-subtle rounded-3">
+                                            <div class="text-muted small mb-1">Total Credentials Issued</div>
+                                            <div class="fs-3 fw-bold text-warning">${data.total_certificates || 0}</div>
+                                            <div class="text-muted" style="font-size:0.75rem;">Digital SHA-256 certs</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h6 class="fw-bold text-dark small text-uppercase mb-2">Honors Breakdown</h6>
+                                <div class="list-group list-group-flush border rounded-2 small mb-3">
+                                    <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                        <div><i class="bi bi-patch-check-fill text-warning me-2"></i><strong>Distinction</strong> (Grade &ge; 90%)</div>
+                                        <span class="badge bg-warning text-dark">${data.distinction_count || 0}</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                        <div><i class="bi bi-patch-check text-primary me-2"></i><strong>Merit</strong> (Grade 80%–89%)</div>
+                                        <span class="badge bg-primary">${data.merit_count || 0}</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                        <div><i class="bi bi-check-circle text-secondary me-2"></i><strong>Pass</strong> (Grade &lt; 80%)</div>
+                                        <span class="badge bg-secondary">${data.pass_count || 0}</span>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-light border py-2 px-3 small text-muted mb-0">
+                                    <i class="bi bi-info-circle me-1 text-primary"></i>Certified trainees are eligible for employer talent-pool recruitment and transcript verification.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Category Distribution -->
+                    <div class="col-lg-5">
+                        <div class="cc-card shadow-sm h-100">
+                            <div class="cc-card-header">
+                                <h6 class="fw-bold mb-0 text-dark">
+                                    <i class="bi bi-pie-chart text-info me-2"></i>Catalog Domain Distribution
+                                </h6>
+                            </div>
+                            <div class="cc-card-body p-0">
+                                ${categoriesHtml}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Performing Courses -->
+                    <div class="col-lg-7">
+                        <div class="cc-card shadow-sm h-100">
+                            <div class="cc-card-header">
+                                <h6 class="fw-bold mb-0 text-dark">
+                                    <i class="bi bi-trophy text-warning me-2"></i>Top Performing Courses &amp; Instructors
+                                </h6>
+                            </div>
+                            <div class="cc-card-body p-0">
+                                ${topCoursesHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } catch (err) {
+            console.error('[AdminDashboard] Error loading analytics:', err);
+            container.innerHTML = `<div class="alert alert-danger small m-3">${this.escapeHtml(err.message)}</div>`;
+        }
+    },
+
+    // =========================================================================
     // EVENT LISTENERS
     // =========================================================================
 
     setupEventListeners() {
+        // Course search
+        const courseSearch = document.getElementById('courseSearchInput');
+        if (courseSearch) {
+            let debounce;
+            courseSearch.addEventListener('input', () => {
+                clearTimeout(debounce);
+                debounce = setTimeout(() => this.handleCourseSearch(), 300);
+            });
+        }
+
         // User search
         const userSearch = document.getElementById('userSearchInput');
         if (userSearch) {
@@ -632,6 +1202,16 @@ const AdminDashboard = {
             userSearch.addEventListener('input', () => {
                 clearTimeout(debounce);
                 debounce = setTimeout(() => this.handleUserSearch(), 300);
+            });
+        }
+
+        // Assessment search
+        const assessmentSearch = document.getElementById('assessmentSearchInput');
+        if (assessmentSearch) {
+            let debounce;
+            assessmentSearch.addEventListener('input', () => {
+                clearTimeout(debounce);
+                debounce = setTimeout(() => this.handleAssessmentSearch(), 300);
             });
         }
 
@@ -645,7 +1225,37 @@ const AdminDashboard = {
             });
         }
 
-        // Tab navigation
+        // Global topbar search
+        const topbarSearch = document.getElementById('topbarSearchInput');
+        if (topbarSearch) {
+            let debounce;
+            topbarSearch.addEventListener('input', () => {
+                clearTimeout(debounce);
+                debounce = setTimeout(() => {
+                    const q = topbarSearch.value;
+                    const activeSection = this._currentSection || 'courses';
+                    if (activeSection === 'courses') {
+                        const input = document.getElementById('courseSearchInput');
+                        if (input) input.value = q;
+                        this.handleCourseSearch();
+                    } else if (activeSection === 'users') {
+                        const input = document.getElementById('userSearchInput');
+                        if (input) input.value = q;
+                        this.handleUserSearch();
+                    } else if (activeSection === 'certificates') {
+                        const input = document.getElementById('certificateSearchInput');
+                        if (input) input.value = q;
+                        this.handleCertificateSearch();
+                    } else if (activeSection === 'assessments') {
+                        const input = document.getElementById('assessmentSearchInput');
+                        if (input) input.value = q;
+                        this.handleAssessmentSearch();
+                    }
+                }, 300);
+            });
+        }
+
+        // Tab navigation (Top Tabs)
         document.querySelectorAll('.admin-section-tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -653,23 +1263,49 @@ const AdminDashboard = {
                 this.showSection(section);
             });
         });
+
+        // Sidebar link navigation
+        document.querySelectorAll('.admin-sidebar-link, .admin-nav-item').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.dataset.section;
+                const role = link.dataset.role;
+                this.showSection(section);
+                if (section === 'users' && role !== undefined) {
+                    this.filterUsers(role);
+                }
+            });
+        });
     },
 
+    _currentSection: 'courses',
+
     showSection(section) {
+        this._currentSection = section;
+
         // Hide all sections
         document.querySelectorAll('.admin-panel-section').forEach(s => s.classList.add('d-none'));
+
         // Show target section
         const target = document.getElementById(`section-${section}`);
         if (target) target.classList.remove('d-none');
+
         // Update tab styling
         document.querySelectorAll('.admin-section-tab').forEach(t => {
             t.classList.toggle('active', t.dataset.section === section);
+        });
+
+        // Update sidebar links styling
+        document.querySelectorAll('.admin-sidebar-link, .admin-nav-item').forEach(l => {
+            l.classList.toggle('active', l.dataset.section === section);
         });
 
         // Lazy load data for each section
         if (section === 'users') this.loadUsers();
         if (section === 'certificates') this.loadCertificates();
         if (section === 'enrollments') this.loadEnrollments();
+        if (section === 'assessments') this.loadAssessments();
+        if (section === 'analytics') this.loadAnalytics();
         if (section === 'courses') this.loadCourseApprovals(this._activeCourseFilter || '');
     },
 
@@ -685,6 +1321,14 @@ const AdminDashboard = {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    },
+
+    escapeJs(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/"/g, '\\"');
     }
 };
 

@@ -92,6 +92,7 @@ class SupabaseAuthentication(BaseAuthentication):
         decode_kwargs = {
             'algorithms': [alg],
             'audience': 'authenticated',
+            'leeway': 60,
             'options': {
                 'verify_signature': True,
                 'verify_exp': True,

@@ -1054,4 +1054,57 @@ class SupabaseStorageTests(TestCase):
         self.assertEqual(size, 1234)
 
 
+class AdminAssessmentAndAnalyticsTests(TestCase):
+    """Tests for Admin assessments and platform analytics endpoints."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_superuser(
+            username='analytics_admin',
+            email='analytics_admin@example.com',
+            password='Password123!',
+        )
+        self.admin.profile.role = Role.ADMIN
+        self.admin.profile.save()
+
+        self.trainer = User.objects.create_user(
+            username='analytics_trainer',
+            email='analytics_trainer@example.com',
+            password='Password123!',
+        )
+        UserProfile.objects.create(user=self.trainer, role=Role.TRAINER)
+
+        self.trainee = User.objects.create_user(
+            username='analytics_trainee',
+            email='analytics_trainee@example.com',
+            password='Password123!',
+        )
+        UserProfile.objects.create(user=self.trainee, role=Role.TRAINEE)
+
+    def test_admin_can_access_assessments_list(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/assessments/admin/all/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_non_admin_cannot_access_assessments_list(self):
+        self.client.force_authenticate(user=self.trainee)
+        response = self.client.get('/api/assessments/admin/all/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_access_analytics(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/courses/admin/analytics/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('completion_rate', response.data)
+        self.assertIn('retention_rate', response.data)
+        self.assertIn('categories', response.data)
+        self.assertIn('top_courses', response.data)
+        self.assertIn('placement_ready_trainees', response.data)
+
+    def test_non_admin_cannot_access_analytics(self):
+        self.client.force_authenticate(user=self.trainer)
+        response = self.client.get('/api/courses/admin/analytics/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
 

@@ -102,6 +102,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'average_rating',
             'review_count',
             'subjects',
+            'rejection_reason',
             'created_at',
             'updated_at',
         ]
@@ -300,3 +301,36 @@ class AdminCourseListSerializer(serializers.ModelSerializer):
 
     def get_subject_count(self, obj):
         return obj.subjects.count()
+
+
+class AdminCategoryMetricSerializer(serializers.Serializer):
+    category = serializers.CharField()
+    courses_count = serializers.IntegerField()
+    enrollments_count = serializers.IntegerField()
+
+
+class AdminTopCourseSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    trainer_username = serializers.CharField()
+    category = serializers.CharField()
+    enrollment_count = serializers.IntegerField()
+    average_rating = serializers.FloatField()
+    completion_rate = serializers.FloatField()
+
+
+class AdminPlatformAnalyticsSerializer(serializers.Serializer):
+    """Serializer for platform-wide analytics and performance insights."""
+    total_enrollments = serializers.IntegerField()
+    active_enrollments = serializers.IntegerField()
+    completed_enrollments = serializers.IntegerField()
+    dropped_enrollments = serializers.IntegerField()
+    completion_rate = serializers.FloatField()
+    retention_rate = serializers.FloatField()
+    categories = AdminCategoryMetricSerializer(many=True)
+    top_courses = AdminTopCourseSerializer(many=True)
+    total_certificates = serializers.IntegerField()
+    distinction_count = serializers.IntegerField()
+    merit_count = serializers.IntegerField()
+    pass_count = serializers.IntegerField()
+    placement_ready_trainees = serializers.IntegerField()

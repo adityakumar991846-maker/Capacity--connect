@@ -48,58 +48,49 @@
         <!-- Role Navigation -->
         <nav class="cc-sidebar-nav">
             <div class="cc-nav-section-title">Platform Oversight</div>
-            <a href="admin-dashboard.html" class="cc-nav-link active">
+            <a href="#" class="cc-nav-link admin-sidebar-link active" data-section="courses">
                 <i class="bi bi-speedometer2"></i>
                 <span>Dashboard</span>
             </a>
-            <a href="#" class="cc-nav-link admin-section-tab" data-section="users">
+            <a href="#" class="cc-nav-link admin-sidebar-link" data-section="users" data-role="">
                 <i class="bi bi-people-fill"></i>
                 <span>Users</span>
             </a>
-            <a href="#" class="cc-nav-link">
+            <a href="#" class="cc-nav-link admin-sidebar-link" data-section="users" data-role="TRAINER">
                 <i class="bi bi-person-video3"></i>
                 <span>Trainers</span>
             </a>
-            <a href="#" class="cc-nav-link">
+            <a href="#" class="cc-nav-link admin-sidebar-link" data-section="users" data-role="TRAINEE">
                 <i class="bi bi-mortarboard-fill"></i>
                 <span>Trainees</span>
             </a>
 
             <div class="cc-nav-section-title mt-3">Governance &amp; Catalog</div>
-            <a href="#" class="cc-nav-link admin-section-tab" data-section="courses">
+            <a href="#" class="cc-nav-link admin-sidebar-link" data-section="courses">
                 <i class="bi bi-journal-check"></i>
-                <span>Courses</span>
+                <span>Course Approvals</span>
             </a>
-            <a href="#" class="cc-nav-link admin-section-tab" data-section="enrollments">
+            <a href="#" class="cc-nav-link admin-sidebar-link" data-section="enrollments">
                 <i class="bi bi-card-checklist"></i>
                 <span>Enrollments</span>
             </a>
-            <a href="#" class="cc-nav-link admin-section-tab" data-section="certificates">
+            <a href="#" class="cc-nav-link admin-sidebar-link" data-section="assessments">
+                <i class="bi bi-ui-checks"></i>
+                <span>Assessments</span>
+            </a>
+            <a href="#" class="cc-nav-link admin-sidebar-link" data-section="certificates">
                 <i class="bi bi-award"></i>
                 <span>Certificates</span>
             </a>
-            <a href="#" class="cc-nav-link">
-                <i class="bi bi-ui-checks"></i>
-                <span>Assessments</span>
-                <span class="badge bg-secondary-subtle text-muted">Soon</span>
-            </a>
-            <a href="#" class="cc-nav-link">
+            <a href="#" class="cc-nav-link admin-sidebar-link" data-section="analytics">
                 <i class="bi bi-graph-up-arrow"></i>
                 <span>Analytics</span>
             </a>
-            <a href="#" class="cc-nav-link">
-                <i class="bi bi-broadcast-pin"></i>
-                <span>Announcements</span>
-            </a>
 
-            <div class="cc-nav-section-title mt-3">System</div>
-            <a href="#" class="cc-nav-link">
-                <i class="bi bi-sliders"></i>
-                <span>Settings</span>
-            </a>
-            <a href="#" class="cc-nav-link">
-                <i class="bi bi-person-gear"></i>
-                <span>Profile</span>
+            <div class="cc-nav-section-title mt-3">Developer / Backend</div>
+            <a href="/admin/" target="_blank" class="cc-nav-link text-muted">
+                <i class="bi bi-database"></i>
+                <span>Django Admin <i class="bi bi-box-arrow-up-right ms-1 small" style="font-size: 0.7rem;"></i></span>
             </a>
         </nav>
 
@@ -190,9 +181,9 @@
                 </div>
             </section>
 
-            <!-- Admin Overview Metrics (6 KPIs) -->
+            <!-- Admin Overview Metrics (7 KPIs) -->
             <section class="row g-3 mb-4">
-                <div class="col-sm-6 col-xl-2">
+                <div class="col-sm-6 col-md-4 col-xl">
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Total Users</div>
@@ -201,7 +192,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-sm-6 col-xl-2">
+                <div class="col-sm-6 col-md-4 col-xl">
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Trainers</div>
@@ -210,7 +201,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-sm-6 col-xl-2">
+                <div class="col-sm-6 col-md-4 col-xl">
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Trainees</div>
@@ -219,16 +210,16 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-sm-6 col-xl-2">
+                <div class="col-sm-6 col-md-4 col-xl">
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Courses</div>
                             <div class="cc-stat-value fs-4 text-primary" id="statTotalCourses">0</div>
-                            <div class="cc-stat-subtext">Total catalog</div>
+                            <div class="cc-stat-subtext">Catalog total</div>
                         </div>
                     </div>
                 </div>
-                <div class="col-sm-6 col-xl-2">
+                <div class="col-sm-6 col-md-4 col-xl">
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Enrollments</div>
@@ -237,12 +228,21 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-sm-6 col-xl-2">
+                <div class="col-sm-6 col-md-4 col-xl">
                     <div class="cc-stat-card shadow-sm p-3">
                         <div>
                             <div class="cc-stat-label" style="font-size: 0.75rem;">Completion</div>
                             <div class="cc-stat-value fs-4 text-purple" id="statAvgCompletion">0%</div>
                             <div class="cc-stat-subtext">Platform avg.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-md-4 col-xl">
+                    <div class="cc-stat-card shadow-sm p-3 border-danger-subtle bg-danger-subtle bg-opacity-10 cursor-pointer" onclick="AdminDashboard.showSection('courses'); AdminDashboard.filterCourses('DRAFT');" title="Click to view pending course approvals" style="cursor: pointer;">
+                        <div>
+                            <div class="cc-stat-label text-danger fw-semibold" style="font-size: 0.75rem;"><i class="bi bi-clock-history me-1"></i>Pending Approvals</div>
+                            <div class="cc-stat-value fs-4 text-danger" id="statPendingCourses">0</div>
+                            <div class="cc-stat-subtext text-danger opacity-75">Requires review</div>
                         </div>
                     </div>
                 </div>
@@ -261,13 +261,23 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link admin-section-tab fw-semibold text-dark" href="#" data-section="enrollments">
+                        <i class="bi bi-card-checklist text-info me-1"></i>Enrollments &amp; Progress
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link admin-section-tab fw-semibold text-dark" href="#" data-section="assessments">
+                        <i class="bi bi-ui-checks text-secondary me-1"></i>Assessments
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link admin-section-tab fw-semibold text-dark" href="#" data-section="certificates">
                         <i class="bi bi-award text-warning me-1"></i>Certificates
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link admin-section-tab fw-semibold text-dark" href="#" data-section="enrollments">
-                        <i class="bi bi-card-checklist text-info me-1"></i>Enrollments
+                    <a class="nav-link admin-section-tab fw-semibold text-dark" href="#" data-section="analytics">
+                        <i class="bi bi-graph-up-arrow text-danger me-1"></i>Platform Analytics
                     </a>
                 </li>
             </ul>
@@ -277,17 +287,26 @@
                 <!-- COURSE APPROVALS SECTION -->
                 <div class="admin-panel-section" id="section-courses">
                     <div class="cc-card shadow-sm">
-                        <div class="cc-card-header d-flex justify-content-between align-items-center">
-                            <h5 class="fw-bold mb-0 text-dark">
-                                <i class="bi bi-clock-history text-danger me-2"></i>Course Publication Approvals
-                            </h5>
-                            <span class="badge bg-secondary-subtle text-muted" id="pendingApprovalsBadge">0 Pending</span>
+                        <div class="cc-card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                            <div>
+                                <h5 class="fw-bold mb-0 text-dark">
+                                    <i class="bi bi-journal-check text-primary me-2"></i>Course Publication &amp; Governance
+                                </h5>
+                                <div class="text-muted small">Review submitted trainer curricula, approve for public listing, or reject with feedback.</div>
+                            </div>
+                            <div class="d-flex gap-2 align-items-center">
+                                <span class="badge bg-danger-subtle text-danger px-3 py-2" id="pendingApprovalsBadge">0 Pending</span>
+                                <div class="input-group input-group-sm" style="max-width: 260px;">
+                                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="courseSearchInput" placeholder="Filter courses...">
+                                </div>
+                            </div>
                         </div>
                         <div class="cc-card-body p-0">
                             <!-- Filter Tabs -->
-                            <div class="bg-light border-bottom px-3 py-2 d-flex gap-2">
-                                <button class="btn btn-sm btn-outline-secondary course-filter-tab active" data-status="" onclick="AdminDashboard.filterCourses('')">All</button>
-                                <button class="btn btn-sm btn-outline-warning course-filter-tab" data-status="DRAFT" onclick="AdminDashboard.filterCourses('DRAFT')">Drafts</button>
+                            <div class="bg-light border-bottom px-3 py-2 d-flex flex-wrap gap-2">
+                                <button class="btn btn-sm btn-outline-secondary course-filter-tab active" data-status="" onclick="AdminDashboard.filterCourses('')">All Courses</button>
+                                <button class="btn btn-sm btn-outline-warning course-filter-tab" data-status="DRAFT" onclick="AdminDashboard.filterCourses('DRAFT')">Drafts / Pending</button>
                                 <button class="btn btn-sm btn-outline-success course-filter-tab" data-status="PUBLISHED" onclick="AdminDashboard.filterCourses('PUBLISHED')">Published</button>
                                 <button class="btn btn-sm btn-outline-danger course-filter-tab" data-status="REJECTED" onclick="AdminDashboard.filterCourses('REJECTED')">Rejected</button>
                                 <button class="btn btn-sm btn-outline-secondary course-filter-tab" data-status="ARCHIVED" onclick="AdminDashboard.filterCourses('ARCHIVED')">Archived</button>
@@ -303,10 +322,13 @@
                 <div class="admin-panel-section d-none" id="section-users">
                     <div class="cc-card shadow-sm">
                         <div class="cc-card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-                            <h5 class="fw-bold mb-0 text-dark">
-                                <i class="bi bi-people-fill text-success me-2"></i>User Management
-                            </h5>
-                            <div class="d-flex gap-2 align-items-center w-100" style="max-width: 400px;">
+                            <div>
+                                <h5 class="fw-bold mb-0 text-dark">
+                                    <i class="bi bi-people-fill text-success me-2"></i>Platform User Roster &amp; Access Control
+                                </h5>
+                                <div class="text-muted small">Manage account roles, view user performance, or activate/deactivate accounts.</div>
+                            </div>
+                            <div class="d-flex gap-2 align-items-center w-100" style="max-width: 320px;">
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                                     <input type="text" class="form-control" id="userSearchInput" placeholder="Search by username or email...">
@@ -315,7 +337,7 @@
                         </div>
                         <div class="cc-card-body p-0">
                             <!-- Role Filter Tabs -->
-                            <div class="bg-light border-bottom px-3 py-2 d-flex gap-2">
+                            <div class="bg-light border-bottom px-3 py-2 d-flex flex-wrap gap-2">
                                 <button class="btn btn-sm btn-outline-secondary user-filter-tab active" data-role="" onclick="AdminDashboard.filterUsers('')">All Users</button>
                                 <button class="btn btn-sm btn-outline-danger user-filter-tab" data-role="ADMIN" onclick="AdminDashboard.filterUsers('ADMIN')">Admins</button>
                                 <button class="btn btn-sm btn-outline-warning user-filter-tab" data-role="TRAINER" onclick="AdminDashboard.filterUsers('TRAINER')">Trainers</button>
@@ -328,14 +350,74 @@
                     </div>
                 </div>
 
+                <!-- ENROLLMENTS OVERVIEW SECTION -->
+                <div class="admin-panel-section d-none" id="section-enrollments">
+                    <div class="cc-card shadow-sm">
+                        <div class="cc-card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                            <div>
+                                <h5 class="fw-bold mb-0 text-dark">
+                                    <i class="bi bi-card-checklist text-info me-2"></i>Trainee Enrollments &amp; Progress
+                                </h5>
+                                <div class="text-muted small">Real-time oversight of trainee progress percentages and completion status across courses.</div>
+                            </div>
+                        </div>
+                        <div class="cc-card-body p-0">
+                            <!-- Filter Tabs -->
+                            <div class="bg-light border-bottom px-3 py-2 d-flex flex-wrap gap-2">
+                                <button class="btn btn-sm btn-outline-secondary enrollment-filter-tab active" data-status="" onclick="AdminDashboard.filterEnrollments('')">All Enrollments</button>
+                                <button class="btn btn-sm btn-outline-primary enrollment-filter-tab" data-status="ENROLLED" onclick="AdminDashboard.filterEnrollments('ENROLLED')">In Progress</button>
+                                <button class="btn btn-sm btn-outline-success enrollment-filter-tab" data-status="COMPLETED" onclick="AdminDashboard.filterEnrollments('COMPLETED')">Completed</button>
+                                <button class="btn btn-sm btn-outline-secondary enrollment-filter-tab" data-status="DROPPED" onclick="AdminDashboard.filterEnrollments('DROPPED')">Dropped</button>
+                            </div>
+                            <div id="enrollmentOverviewContainer">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ASSESSMENTS MANAGEMENT SECTION -->
+                <div class="admin-panel-section d-none" id="section-assessments">
+                    <div class="cc-card shadow-sm">
+                        <div class="cc-card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                            <div>
+                                <h5 class="fw-bold mb-0 text-dark">
+                                    <i class="bi bi-ui-checks text-secondary me-2"></i>Assessment &amp; Quiz Engine Oversight
+                                </h5>
+                                <div class="text-muted small">Monitor quizzes, question pool sizes, trainee attempt volumes, and pass rates.</div>
+                            </div>
+                            <div class="d-flex gap-2 align-items-center w-100" style="max-width: 320px;">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="assessmentSearchInput" placeholder="Search quiz or course...">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="cc-card-body p-0">
+                            <div class="bg-light border-bottom px-3 py-2 d-flex flex-wrap gap-2">
+                                <button class="btn btn-sm btn-outline-secondary assessment-filter-tab active" data-status="" onclick="AdminDashboard.filterAssessments('')">All Quizzes</button>
+                                <button class="btn btn-sm btn-outline-success assessment-filter-tab" data-status="PUBLISHED" onclick="AdminDashboard.filterAssessments('PUBLISHED')">Published</button>
+                                <button class="btn btn-sm btn-outline-warning assessment-filter-tab" data-status="DRAFT" onclick="AdminDashboard.filterAssessments('DRAFT')">Drafts</button>
+                                <button class="btn btn-sm btn-outline-secondary assessment-filter-tab" data-status="ARCHIVED" onclick="AdminDashboard.filterAssessments('ARCHIVED')">Archived</button>
+                            </div>
+                            <div id="assessmentsContainer">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- CERTIFICATE MANAGEMENT SECTION -->
                 <div class="admin-panel-section d-none" id="section-certificates">
                     <div class="cc-card shadow-sm">
                         <div class="cc-card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-                            <h5 class="fw-bold mb-0 text-dark">
-                                <i class="bi bi-award-fill text-warning me-2"></i>Certificate Governance
-                            </h5>
-                            <div class="d-flex gap-2 align-items-center w-100" style="max-width: 400px;">
+                            <div>
+                                <h5 class="fw-bold mb-0 text-dark">
+                                    <i class="bi bi-award-fill text-warning me-2"></i>Certificate Governance &amp; Credential Verification
+                                </h5>
+                                <div class="text-muted small">Inspect issued digital credentials, verify cryptographic authenticity, or revoke/reinstate certificates.</div>
+                            </div>
+                            <div class="d-flex gap-2 align-items-center w-100" style="max-width: 320px;">
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                                     <input type="text" class="form-control" id="certificateSearchInput" placeholder="Search by code or user...">
@@ -350,26 +432,10 @@
                     </div>
                 </div>
 
-                <!-- ENROLLMENTS OVERVIEW SECTION -->
-                <div class="admin-panel-section d-none" id="section-enrollments">
-                    <div class="cc-card shadow-sm">
-                        <div class="cc-card-header">
-                            <h5 class="fw-bold mb-0 text-dark">
-                                <i class="bi bi-card-checklist text-info me-2"></i>Platform Enrollments
-                            </h5>
-                        </div>
-                        <div class="cc-card-body p-0">
-                            <!-- Filter Tabs -->
-                            <div class="bg-light border-bottom px-3 py-2 d-flex gap-2">
-                                <button class="btn btn-sm btn-outline-secondary enrollment-filter-tab active" data-status="" onclick="AdminDashboard.filterEnrollments('')">All</button>
-                                <button class="btn btn-sm btn-outline-primary enrollment-filter-tab" data-status="ENROLLED" onclick="AdminDashboard.filterEnrollments('ENROLLED')">In Progress</button>
-                                <button class="btn btn-sm btn-outline-success enrollment-filter-tab" data-status="COMPLETED" onclick="AdminDashboard.filterEnrollments('COMPLETED')">Completed</button>
-                                <button class="btn btn-sm btn-outline-secondary enrollment-filter-tab" data-status="DROPPED" onclick="AdminDashboard.filterEnrollments('DROPPED')">Dropped</button>
-                            </div>
-                            <div id="enrollmentOverviewContainer">
-                                <!-- Populated dynamically -->
-                            </div>
-                        </div>
+                <!-- PLATFORM ANALYTICS SECTION -->
+                <div class="admin-panel-section d-none" id="section-analytics">
+                    <div id="analyticsContainer">
+                        <!-- Populated dynamically with Funnel, Categories, Top Courses, Placement Readiness -->
                     </div>
                 </div>
             </div>
@@ -380,6 +446,77 @@
         <footer class="bg-white border-top py-3 px-4 text-center text-muted small mt-auto">
             &copy; 2026 Capacity Connect. Empowering skill-building and capacity management.
         </footer>
+    </div>
+
+    <!-- Course Inspection Modal -->
+    <div class="modal fade" id="courseDetailModal" tabindex="-1" aria-labelledby="courseDetailModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold text-dark" id="courseDetailModalTitle">Course Inspection &amp; Governance</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" id="courseDetailContainer">
+                    <!-- Populated dynamically -->
+                </div>
+                <div class="modal-footer bg-light d-flex justify-content-between" id="courseDetailModalFooter">
+                    <!-- Dynamic actions -->
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Course Rejection Modal -->
+    <div class="modal fade" id="rejectCourseModal" tabindex="-1" aria-labelledby="rejectCourseModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold" id="rejectCourseModalTitle"><i class="bi bi-exclamation-octagon me-2"></i>Reject Course Submission</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">
+                        Provide clear feedback explaining why this course was rejected and what requirements the trainer must meet to be approved.
+                    </p>
+                    <input type="hidden" id="rejectCourseId">
+                    <div class="mb-3">
+                        <label for="rejectCourseReasonInput" class="form-label fw-semibold small">Rejection Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="rejectCourseReasonInput" rows="4" placeholder="e.g. Missing practical lab exercises, insufficient description of prerequisites, etc." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-sm px-3" onclick="AdminDashboard.submitCourseRejection()">Confirm Rejection</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Certificate Revocation Modal -->
+    <div class="modal fade" id="revokeCertModal" tabindex="-1" aria-labelledby="revokeCertModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold" id="revokeCertModalTitle"><i class="bi bi-shield-x me-2"></i>Revoke Digital Certificate</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">
+                        Revoking a credential marks it invalid in public verification queries. Please document the authoritative revocation reason.
+                    </p>
+                    <input type="hidden" id="revokeCertId">
+                    <div class="mb-3">
+                        <label for="revokeCertReasonInput" class="form-label fw-semibold small">Revocation Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="revokeCertReasonInput" rows="3" placeholder="e.g. Disciplinary breach, invalid assessment submission, administrative error..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-sm px-3" onclick="AdminDashboard.submitCertRevocation()">Confirm Revocation</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- User Detail Modal -->

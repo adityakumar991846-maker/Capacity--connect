@@ -22,8 +22,10 @@ from .models import (
     AssessmentStatus,
     Question,
 )
+from core.permissions import IsAdmin
 from .permissions import IsTraineeOrAdmin, IsTrainerOrAdmin
 from .serializers import (
+    AdminAssessmentListSerializer,
     AssessmentAttemptDetailSerializer,
     AssessmentAttemptRosterSerializer,
     AssessmentCreateUpdateSerializer,
@@ -368,4 +370,35 @@ class TraineeMyAttemptsView(APIView):
     def get(self, request):
         attempts = AssessmentAttempt.objects.filter(trainee=request.user)
         serializer = AssessmentAttemptDetailSerializer(attempts, many=True)
+        return Response(serializer.data)
+
+
+class AdminAssessmentListView(APIView):
+    """
+    GET /api/assessments/admin/all/ — All platform assessments (Admin only) with optional status filter and search.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        from django.db.models import Q
+        assessments = (
+            Assessment.objects.select_related('course', 'subject', 'created_by')
+            .prefetch_related('questions', 'attempts')
+            .all()
+            .order_by('-created_at')
+        )
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            assessments = assessments.filter(status=status_filter.upper())
+
+        search = request.query_params.get('search')
+        if search:
+            assessments = assessments.filter(
+                Q(title__icontains=search)
+                | Q(course__title__icontains=search)
+                | Q(created_by__username__icontains=search)
+            )
+
+        serializer = AdminAssessmentListSerializer(assessments, many=True)
         return Response(serializer.data)

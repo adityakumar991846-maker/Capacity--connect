@@ -17,6 +17,7 @@ urlpatterns = [
     path('admin/courses/<int:pk>/publish/', views.AdminCoursePublishView.as_view(), name='admin-course-publish'),
     path('admin/courses/<int:pk>/reject/', views.AdminCourseRejectView.as_view(), name='admin-course-reject'),
     path('admin/courses/<int:pk>/archive/', views.AdminCourseArchiveView.as_view(), name='admin-course-archive'),
+    path('admin/analytics/', views.AdminPlatformAnalyticsView.as_view(), name='admin-platform-analytics'),
 
     path('<int:pk>/', views.CourseDetailView.as_view(), name='course-detail'),
     path('<int:course_id>/subjects/', views.SubjectListCreateView.as_view(), name='subject-list-create'),

@@ -26,6 +26,7 @@ from .serializers import (
     TrainerDashboardStatsSerializer,
     AdminPlatformStatsSerializer,
     AdminCourseListSerializer,
+    AdminPlatformAnalyticsSerializer,
 )
 
 
@@ -505,3 +506,94 @@ class AdminCourseArchiveView(APIView):
         course.status = CourseStatus.ARCHIVED
         course.save(update_fields=['status', 'updated_at'])
         return Response(CourseDetailSerializer(course).data)
+
+
+class AdminPlatformAnalyticsView(APIView):
+    """
+    GET /api/courses/admin/analytics/ — Deep platform analytics and performance metrics.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        from enrollments.models import Enrollment, EnrollmentStatus
+        from certificates.models import Certificate
+        from django.db.models import Count
+
+        # 1. Retention & Completion Funnel
+        total_enrollments = Enrollment.objects.count()
+        active_enrollments = Enrollment.objects.filter(status=EnrollmentStatus.ENROLLED).count()
+        completed_enrollments = Enrollment.objects.filter(status=EnrollmentStatus.COMPLETED).count()
+        dropped_enrollments = Enrollment.objects.filter(status=EnrollmentStatus.DROPPED).count()
+
+        completion_rate = round((completed_enrollments / total_enrollments * 100), 1) if total_enrollments > 0 else 0.0
+        retention_rate = round(((total_enrollments - dropped_enrollments) / total_enrollments * 100), 1) if total_enrollments > 0 else 0.0
+
+        # 2. Category Distribution
+        categories_data = []
+        category_stats = (
+            Course.objects.values('category')
+            .annotate(
+                courses_count=Count('id', distinct=True),
+                enrollments_count=Count('enrollments', distinct=True),
+            )
+            .order_by('-enrollments_count')
+        )
+        for stat in category_stats:
+            categories_data.append({
+                'category': stat['category'] or 'General',
+                'courses_count': stat['courses_count'],
+                'enrollments_count': stat['enrollments_count'],
+            })
+
+        # 3. Top Performing Courses
+        top_courses_qs = (
+            Course.objects.filter(status=CourseStatus.PUBLISHED)
+            .select_related('trainer')
+            .annotate(
+                enrollment_count=Count('enrollments', distinct=True),
+            )
+            .order_by('-enrollment_count')[:6]
+        )
+        top_courses = []
+        for c in top_courses_qs:
+            c_enrollments = c.enrollments.all()
+            c_total = c_enrollments.count()
+            c_completed = c_enrollments.filter(status=EnrollmentStatus.COMPLETED).count()
+            c_rate = round((c_completed / c_total * 100), 1) if c_total > 0 else 0.0
+
+            top_courses.append({
+                'id': c.id,
+                'title': c.title,
+                'trainer_username': c.trainer.username,
+                'category': c.category,
+                'enrollment_count': c.enrollment_count,
+                'average_rating': float(c.average_rating or 0.0),
+                'completion_rate': c_rate,
+            })
+
+        # 4. Trainee Outcomes & Honors Breakdown
+        certs = Certificate.objects.filter(is_revoked=False)
+        total_certs = certs.count()
+        distinction = certs.filter(final_grade_percentage__gte=90.0).count()
+        merit = certs.filter(final_grade_percentage__gte=80.0, final_grade_percentage__lt=90.0).count()
+        pass_cnt = certs.filter(final_grade_percentage__lt=80.0).count()
+        placement_ready = certs.values('trainee').distinct().count()
+
+        analytics_data = {
+            'total_enrollments': total_enrollments,
+            'active_enrollments': active_enrollments,
+            'completed_enrollments': completed_enrollments,
+            'dropped_enrollments': dropped_enrollments,
+            'completion_rate': completion_rate,
+            'retention_rate': retention_rate,
+            'categories': categories_data,
+            'top_courses': top_courses,
+            'total_certificates': total_certs,
+            'distinction_count': distinction,
+            'merit_count': merit,
+            'pass_count': pass_cnt,
+            'placement_ready_trainees': placement_ready,
+        }
+
+        serializer = AdminPlatformAnalyticsSerializer(analytics_data)
+        return Response(serializer.data)

@@ -12,12 +12,18 @@ env/
 *.log
 db.sqlite3
 media/
+backend/media/
 staticfiles/
+backend/staticfiles/
 
 # Environment variables & Local config
 .env
 .env.*
+*.env
+backend/.env
+backend/.env.*
 !.env.example
+!backend/.env.example
 frontend/js/supabase-config.js
 !frontend/js/supabase-config.example.js
 

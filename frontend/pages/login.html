@@ -165,7 +165,18 @@
                     showAlert('Sign in successful! Redirecting to your dashboard...', 'success');
                     setTimeout(() => {
                         const urlParams = new URLSearchParams(window.location.search);
-                        const redirectUrl = urlParams.get('redirect') || 'dashboard.html';
+                        let redirectUrl = urlParams.get('redirect');
+                        if (!redirectUrl) {
+                            if (result && result.profile && result.profile.role === 'ADMIN') {
+                                redirectUrl = 'admin-dashboard.html';
+                            } else if (result && result.profile && result.profile.role === 'TRAINER') {
+                                redirectUrl = 'trainer-dashboard.html';
+                            } else if (result && result.profile && result.profile.role === 'TRAINEE') {
+                                redirectUrl = 'trainee-dashboard.html';
+                            } else {
+                                redirectUrl = 'dashboard.html';
+                            }
+                        }
                         window.location.href = redirectUrl;
                     }, 600);
                 } catch (err) {

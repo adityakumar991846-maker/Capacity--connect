@@ -19,4 +19,7 @@ urlpatterns = [
     path('trainee/<int:pk>/submit/', views.TraineeAssessmentSubmitView.as_view(), name='trainee-assessment-submit'),
     path('trainee/attempts/<int:pk>/', views.TraineeAttemptDetailView.as_view(), name='trainee-attempt-detail'),
     path('trainee/my-attempts/', views.TraineeMyAttemptsView.as_view(), name='trainee-my-attempts'),
+
+    # Admin routes
+    path('admin/all/', views.AdminAssessmentListView.as_view(), name='admin-assessment-list'),
 ]
